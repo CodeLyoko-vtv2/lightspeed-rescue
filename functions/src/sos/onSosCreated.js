@@ -2,7 +2,7 @@
 
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { logger } = require("firebase-functions");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore } = require("firebase-admin/firestore");
 const { getDatabase, ServerValue } = require("firebase-admin/database");
 const {
   calculateTriageScore,
@@ -11,11 +11,11 @@ const {
   INCIDENT_BASE_SCORES
 } = require("../ai/triageScore");
 
-let notifyAdmin = null;
+let sendToAdmin = null;
 try {
-  ({ notifyAdmin } = require("../notify/sendToAdmin"));
+  ({ sendToAdmin } = require("../notify/sendToAdmin"));
 } catch (error) {
-  logger.warn("notifyAdmin module is not available", {
+  logger.warn("sendToAdmin module is not available", {
     error: error && error.message ? error.message : String(error)
   });
 }
@@ -134,49 +134,24 @@ const onSosCreated = onDocumentCreated(
       const title = `[${labelText}] ${incidentType} - ${victimName}`;
       const body = buildNotificationBody({ victimName, victimPhone, incidentType });
 
-      const notifyTasks = [];
-
-      if (typeof notifyAdmin === "function") {
-        notifyTasks.push(
-          notifyAdmin({
+      if (typeof sendToAdmin === "function") {
+        const notifyResult = await Promise.allSettled([
+          sendToAdmin({
             title,
             body,
             sosId,
-            victimId,
-            victimName,
-            victimPhone,
-            incidentType,
-            priorityScore: score,
-            priorityLabel: label
+            type: "NEW_SOS"
           })
-        );
-      } else {
-        logger.warn("notifyAdmin is not configured", { sosId });
-      }
+        ]);
 
-      notifyTasks.push(
-        firestore.collection("notifications").add({
-          title,
-          body,
-          sosId,
-          victimId,
-          victimName,
-          victimPhone,
-          incidentType,
-          priorityScore: score,
-          priorityLabel: label,
-          createdAt: FieldValue.serverTimestamp()
-        })
-      );
-
-      const notifyResults = await Promise.allSettled(notifyTasks);
-      for (const result of notifyResults) {
-        if (result.status === "rejected") {
+        if (notifyResult[0].status === "rejected") {
           logger.warn("Notify step failed", {
             sosId,
-            error: result.reason ? result.reason.message : "unknown"
+            error: notifyResult[0].reason ? notifyResult[0].reason.message : "unknown"
           });
         }
+      } else {
+        logger.warn("sendToAdmin is not configured", { sosId });
       }
 
       logger.info("SOS triage processed", {
