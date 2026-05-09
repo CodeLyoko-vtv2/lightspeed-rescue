@@ -10,22 +10,22 @@ const {
   INCIDENT_BASE_SCORES
 } = require("../ai/triageScore");
 
-let notifyAdmin = null;
-let notifyRescueTeam = null;
+let sendToAdmin = null;
+let sendToRescuer = null;
 let notifyVictim = null;
 
 try {
-  ({ notifyAdmin } = require("../notify/sendToAdmin"));
+  ({ sendToAdmin } = require("../notify/sendToAdmin"));
 } catch (error) {
-  logger.warn("notifyAdmin module is not available", {
+  logger.warn("sendToAdmin module is not available", {
     error: error && error.message ? error.message : String(error)
   });
 }
 
 try {
-  ({ notifyRescueTeam } = require("../notify/sendToRescueTeam"));
+  ({ sendToRescuer } = require("../notify/sendToRescuer"));
 } catch (error) {
-  logger.warn("notifyRescueTeam module is not available", {
+  logger.warn("sendToRescuer module is not available", {
     error: error && error.message ? error.message : String(error)
   });
 }
@@ -200,20 +200,17 @@ const onSosUpdated = onDocumentUpdated(
         );
 
         const victimName = after.victimName || "Nan nhan";
-        if (typeof notifyAdmin === "function") {
+        if (typeof sendToAdmin === "function") {
           tasks.push(
-            notifyAdmin({
+            sendToAdmin({
               title: buildCase1Title(victimName),
               body: `SOS ${sosId} da cap nhat thong tin su co.`,
               sosId,
-              victimId: after.victimId,
-              victimName,
-              priorityScore: score,
-              priorityLabel: label
+              type: "INFO_UPDATED"
             })
           );
         } else {
-          logger.warn("notifyAdmin is not configured", { sosId });
+          logger.warn("sendToAdmin is not configured", { sosId });
         }
 
         const assignedTeams = getAssignedTeams(after.assignedTeams);
@@ -222,19 +219,19 @@ const onSosUpdated = onDocumentUpdated(
         );
 
         if (acceptedTeams.length > 0) {
-          if (typeof notifyRescueTeam === "function") {
+          if (typeof sendToRescuer === "function") {
             for (const [teamId] of acceptedTeams) {
               tasks.push(
-                notifyRescueTeam({
+                sendToRescuer({
                   teamId,
                   sosId,
-                  title: "Cap nhat SOS",
-                  body: "Nan nhan da bo sung thong tin su co."
+                  sosData: after,
+                  notificationType: "UPDATE"
                 })
               );
             }
           } else {
-            logger.warn("notifyRescueTeam is not configured", { sosId });
+            logger.warn("sendToRescuer is not configured", { sosId });
           }
         }
       }
@@ -246,17 +243,17 @@ const onSosUpdated = onDocumentUpdated(
       if (newTeamIds.length > 0) {
         updateTypes.push("assigned-teams");
         for (const teamId of newTeamIds) {
-          if (typeof notifyRescueTeam === "function") {
+          if (typeof sendToRescuer === "function") {
             tasks.push(
-              notifyRescueTeam({
+              sendToRescuer({
                 teamId,
                 sosId,
-                title: "Dieu dong cuu ho",
-                body: "Ban duoc dieu dong xu ly SOS moi."
+                sosData: after,
+                notificationType: "DISPATCH"
               })
             );
           } else {
-            logger.warn("notifyRescueTeam is not configured", { sosId, teamId });
+            logger.warn("sendToRescuer is not configured", { sosId, teamId });
           }
 
           tasks.push(
@@ -270,11 +267,12 @@ const onSosUpdated = onDocumentUpdated(
           );
         }
 
-        if (typeof notifyAdmin === "function") {
+        if (typeof sendToAdmin === "function") {
           tasks.push(
-            notifyAdmin({
+            sendToAdmin({
               ...buildAdminMessage("Da dieu dong doi cuu ho moi."),
-              sosId
+              sosId,
+              type: "TEAM_RESPONSE"
             })
           );
         }
@@ -301,11 +299,12 @@ const onSosUpdated = onDocumentUpdated(
               logger.warn("notifyVictim is not configured", { sosId });
             }
 
-            if (typeof notifyAdmin === "function") {
+            if (typeof sendToAdmin === "function") {
               tasks.push(
-                notifyAdmin({
+                sendToAdmin({
                   ...buildAdminMessage(`${teamName} da nhan nhiem vu.`),
-                  sosId
+                  sosId,
+                  type: "TEAM_RESPONSE"
                 })
               );
             }
@@ -315,11 +314,12 @@ const onSosUpdated = onDocumentUpdated(
             const reason =
               change.afterTeam?.reason || change.afterTeam?.rejectionReason || "Khong ro";
 
-            if (typeof notifyAdmin === "function") {
+            if (typeof sendToAdmin === "function") {
               tasks.push(
-                notifyAdmin({
+                sendToAdmin({
                   ...buildAdminMessage(`${teamName} tu choi - ${reason}.`),
-                  sosId
+                  sosId,
+                  type: "TEAM_RESPONSE"
                 })
               );
             }
@@ -336,11 +336,12 @@ const onSosUpdated = onDocumentUpdated(
           }
 
           if (afterStatus === "completed") {
-            if (typeof notifyAdmin === "function") {
+            if (typeof sendToAdmin === "function") {
               tasks.push(
-                notifyAdmin({
+                sendToAdmin({
                   ...buildAdminMessage(`${teamName} da hoan thanh nhiem vu.`),
-                  sosId
+                  sosId,
+                  type: "TEAM_RESPONSE"
                 })
               );
             }
