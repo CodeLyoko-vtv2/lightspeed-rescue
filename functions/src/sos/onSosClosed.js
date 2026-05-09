@@ -5,11 +5,11 @@ const { logger } = require("firebase-functions");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getDatabase, ServerValue } = require("firebase-admin/database");
 
-let notifyAdmin = null;
+let sendToAdmin = null;
 try {
-  ({ notifyAdmin } = require("../notify/sendToAdmin"));
+  ({ sendToAdmin } = require("../notify/sendToAdmin"));
 } catch (error) {
-  logger.warn("notifyAdmin module is not available", {
+  logger.warn("sendToAdmin module is not available", {
     error: error && error.message ? error.message : String(error)
   });
 }
@@ -117,22 +117,23 @@ const onSosClosed = onDocumentUpdated(
         }
       }
 
-      if (typeof notifyAdmin === "function") {
+      if (typeof sendToAdmin === "function") {
         const victimName = after.victimName || "Nan nhan";
         try {
-          await notifyAdmin({
+          await sendToAdmin({
             title: "✅ Giải cứu thành công",
             body: `${victimName} đã được giải cứu thành công`,
-            sosId
+            sosId,
+            type: "RESOLVED"
           });
         } catch (error) {
-          logger.warn("onSosClosed notifyAdmin failed", {
+          logger.warn("onSosClosed sendToAdmin failed", {
             sosId,
             error: error && error.message ? error.message : String(error)
           });
         }
       } else {
-        logger.warn("notifyAdmin is not configured", { sosId });
+        logger.warn("sendToAdmin is not configured", { sosId });
       }
 
       const unreadQuery = await firestore
