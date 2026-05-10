@@ -13,6 +13,7 @@ import { useTeamsMock } from '../hooks/useTeamsMock.js';
 import { COLORS } from '../constants/colors.js';
 import { SosAlertToast } from '../components/sos/SosAlertToast.jsx';
 import { DispatchToast } from '../components/sos/DispatchToast.jsx';
+import { DeniedToast } from '../components/sos/DeniedToast.jsx';
 
 export function DashboardPage() {
   const { currentUser } = useAuth();
@@ -27,6 +28,8 @@ export function DashboardPage() {
   const [dispatchSos, setDispatchSos] = useState(null);    // SOS đang được cứu hộ
   const [selectedTeam, setSelectedTeam] = useState(null);  // Team được chọn
   const [dispatchToast, setDispatchToast] = useState(null); // { team, victim }
+  const [deniedToast, setDeniedToast] = useState(null); // Hiện toast góc dưới trái khi TỪ CHỐI
+  const [missionComplete, setMissionComplete] = useState(false); // báo hiệu popup đóng
   const mapRef = useRef(null);
   const cardRefs = useRef({});
   const location = useLocation();
@@ -92,10 +95,28 @@ export function DashboardPage() {
   const handleTeamClose = () => setSelectedTeam(null);
 
   const handleTeamDispatched = (team) => {
-    // Team đã nhận nhiệm vụ: hiện DispatchToast
+    // Team nhận nhiệm vụ: hiện DispatchToast, nhưng KHÔNG đóng popup
     setDispatchToast({ team, victim: dispatchSos });
-    setDispatchMode(false);
-    setSelectedTeam(null);
+    setDeniedToast(null);
+    setMissionComplete(false); // reset tính hiệu
+    // Giữ dispatchMode và selectedTeam để popup vẫn hiện
+  };
+
+  const handleTeamDispatchDenied = (team) => {
+    // Team từ chối nhiệm vụ: hiện DeniedToast
+    setDeniedToast({ team, victim: dispatchSos });
+    setDispatchToast(null);
+  };
+
+  const handleMissionComplete = () => {
+    // DispatchToast báo "Nhiệm vụ hoàn thành" → đóng popup
+    setMissionComplete(true);
+    // Dọn state sau một tick để TeamPopup kịp nhận tín hiệu
+    setTimeout(() => {
+      setDispatchMode(false);
+      setSelectedTeam(null);
+      setMissionComplete(false);
+    }, 500);
   };
 
   const handleZoomIn = () => {
@@ -154,6 +175,8 @@ export function DashboardPage() {
           onTeamClick={handleTeamClick}
           onTeamClose={handleTeamClose}
           onTeamDispatched={handleTeamDispatched}
+          onDispatchDenied={handleTeamDispatchDenied}
+          missionComplete={missionComplete}
         />
         <div
           style={{
@@ -200,7 +223,17 @@ export function DashboardPage() {
             team={dispatchToast.team}
             victim={dispatchToast.victim}
             onClose={() => setDispatchToast(null)}
+            onMissionComplete={handleMissionComplete}
             completionDelayMs={10000}
+          />
+        ) : null}
+
+        {/* Denied Toast — góc dưới trái khi team từ chối điều động */}
+        {deniedToast ? (
+          <DeniedToast
+            team={deniedToast.team}
+            victim={deniedToast.victim}
+            onClose={() => setDeniedToast(null)}
           />
         ) : null}
       </div>

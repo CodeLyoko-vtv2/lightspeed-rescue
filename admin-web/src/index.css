@@ -680,8 +680,8 @@ body {
   padding: 0 !important;
 }
 .team-popup .leaflet-popup-content {
-  margin: 16px !important;
-  padding: 0 !important;
+  margin: 0 !important;
+  padding: 16px !important;
 }
 /* Ẩn arrow cho team popup */
 .team-popup .leaflet-popup-tip-container {

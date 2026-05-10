@@ -24,6 +24,8 @@ export function RescueMap({
   onTeamClick,
   onTeamClose,
   onTeamDispatched,
+  onDispatchDenied,
+  missionComplete,
 }) {
   const selectedSos = useMemo(
     () => sosList.find((item) => item.id === selectedSosId),
@@ -82,13 +84,16 @@ export function RescueMap({
         />
       ) : null}
 
-      {/* Team popup (dispatch mode) */}
-      {dispatchMode && selectedTeam && selectedTeam.location ? (
+      {/* Team popup — hiện khi click vào bất kỳ team marker nào */}
+      {selectedTeam && selectedTeam.location ? (
         <TeamPopup
           team={selectedTeam}
           position={selectedTeam.location}
           onClose={onTeamClose}
           onDispatched={onTeamDispatched}
+          onDispatchDenied={onDispatchDenied}
+          missionComplete={missionComplete}
+          canDispatch={dispatchMode}
         />
       ) : null}
     </MapContainer>
@@ -118,6 +123,8 @@ RescueMap.propTypes = {
   onTeamClick: PropTypes.func,
   onTeamClose: PropTypes.func,
   onTeamDispatched: PropTypes.func,
+  onDispatchDenied: PropTypes.func,
+  missionComplete: PropTypes.bool,
 };
 
 RescueMap.defaultProps = {
@@ -131,4 +138,6 @@ RescueMap.defaultProps = {
   onTeamClick: null,
   onTeamClose: null,
   onTeamDispatched: null,
+  onDispatchDenied: null,
+  missionComplete: false,
 };

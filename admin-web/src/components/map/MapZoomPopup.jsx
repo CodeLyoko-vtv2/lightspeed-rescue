@@ -15,6 +15,7 @@ const INVISIBLE_ICON = L.divIcon({
   html: '',
   iconSize: [1, 1],
   iconAnchor: [0, 0],
+  popupAnchor: [0, -52], // Điểm neo của popup: dịch lên 52px (đúng bằng chiều cao của SosMarker)
 });
 
 const INCIDENT_META = {
@@ -52,34 +53,27 @@ export function MapZoomPopup({ sos, position, onClose, onDispatch }) {
         icon={INVISIBLE_ICON}
         zIndexOffset={1000}
       >
-        {/* offset âm → popup nằm TRÊN marker đỏ (60px) */}
+        {/* offset âm → popup nằm TRÊN marker đỏ (65px để tránh đè marker) */}
         <Popup
           className="map-zoom-popup"
           closeButton={false}
           autoPan={false}
-          offset={[0, -60]}
+          offset={[0, -65]}
         >
           <div style={wrapStyle}>
-            {/* Nút đóng X */}
-            <button
-              type="button"
-              aria-label="Đóng"
-              onClick={(e) => { e.stopPropagation(); onClose(); }}
-              style={closeBtnStyle}
-            >
-              <img src={closeIcon} alt="" style={{ width: '10px', height: '10px' }} />
-            </button>
-
             {/* Dòng 1: Tên cam + Badge */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '26px' }}>
-              <span style={{ fontSize: '14px', fontWeight: 700, color: '#FF8852' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '15px', fontWeight: 700, color: '#FF8852' }}>
                 {sos.victimName || 'Nạn nhân'}
               </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                {incident.icon
-                  ? <img src={incident.icon} alt="" style={{ width: '14px', height: '14px' }} />
-                  : <span style={{ fontSize: '12px' }}>⚠️</span>}
-                <span style={{ fontSize: '11px', fontWeight: 600, color: incident.color }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#FFD6D6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="#000000">
+                    <path d="M12 2C12 2 16 6 16 11C16 15.4183 14.2091 19 12 19C9.79086 19 8 15.4183 8 11C8 6 12 2 12 2Z" />
+                    <path d="M12 11C12 11 14 13 14 15C14 16.6569 13.1046 18 12 18C10.8954 18 10 16.6569 10 15C10 13 12 11 12 11Z" fill="#FFD6D6" />
+                  </svg>
+                </div>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#000000' }}>
                   {incident.label}
                 </span>
               </div>
@@ -87,37 +81,41 @@ export function MapZoomPopup({ sos, position, onClose, onDispatch }) {
 
             {/* Dòng 2: Số điện thoại */}
             {phone
-              ? <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827', marginTop: '5px' }}>{phone}</div>
+              ? <div style={{ fontSize: '13px', fontWeight: 700, color: '#000000', marginTop: '10px' }}>{phone}</div>
               : null}
 
             {/* Dòng 3: Địa chỉ */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px', marginTop: '6px' }}>
-              <img src={pinIcon} alt="" style={{ width: '12px', height: '12px', marginTop: '2px', flexShrink: 0 }} />
-              <span style={{ fontSize: '12px', color: '#6B7280', lineHeight: 1.5 }}>{address}</span>
+            <div style={{ fontSize: '14px', color: '#000000', marginTop: '10px', lineHeight: 1.4 }}>
+              {address}
             </div>
 
             {/* Dòng 4: Mô tả */}
             {description
-              ? <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px', fontStyle: 'italic' }}>{description}</div>
+              ? <div style={{ fontSize: '14px', color: '#555555', marginTop: '10px' }}>{description}</div>
               : null}
 
             {/* Dòng 5: Icon buttons */}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '10px', borderTop: '1px solid #F0F2F5', paddingTop: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', marginTop: '20px' }}>
               <button
                 type="button"
                 style={iconBtnStyle}
                 onClick={(e) => { e.stopPropagation(); setShowVoiceModal(true); }}
               >
-                <img src={micIcon} alt="" style={{ width: '22px', height: '22px' }} />
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2C10.8954 2 10 2.89543 10 4V11C10 12.1046 10.8954 13 12 13C13.1046 13 14 12.1046 14 11V4C14 2.89543 13.1046 2 12 2Z" stroke="#FF8852" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M17 11C17 13.7614 14.7614 16 12 16C9.23858 16 7 13.7614 7 11" stroke="#FF8852" strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="16" cy="18" r="3" stroke="#FF8852" strokeWidth="1.5"/>
+                  <circle cx="16" cy="18" r="1" fill="#FF8852"/>
+                </svg>
                 <span>Ghi âm</span>
               </button>
               <button type="button" style={iconBtnStyle}
                 onClick={(e) => { e.stopPropagation(); setShowGalleryModal(true); }}
               >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                  <rect x="3" y="3" width="18" height="18" rx="2.5" stroke="#FF8852" strokeWidth="1.6"/>
-                  <circle cx="8.5" cy="8.5" r="1.5" fill="#FF8852"/>
-                  <path d="M3 15.5l5.5-5 4 4 3-3 5 5" stroke="#FF8852" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="4" width="18" height="16" rx="2" stroke="#FF8852" strokeWidth="1.5"/>
+                  <circle cx="8.5" cy="8.5" r="1.5" stroke="#FF8852" strokeWidth="1.5"/>
+                  <path d="M21 15L16.5 10.5C15.6716 9.67157 14.3284 9.67157 13.5 10.5L3 21" stroke="#FF8852" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 <span>Bộ sưu tập</span>
               </button>
@@ -151,23 +149,9 @@ export function MapZoomPopup({ sos, position, onClose, onDispatch }) {
 /* ── Styles ── */
 const wrapStyle = {
   fontFamily: 'Roboto, sans-serif',
-  width: '235px',
+  width: '260px',
   position: 'relative',
-};
-
-const closeBtnStyle = {
-  position: 'absolute',
-  top: 0,
-  right: 0,
-  width: '22px',
-  height: '22px',
-  border: 'none',
-  borderRadius: '50%',
-  background: '#F1F3F4',
-  display: 'grid',
-  placeItems: 'center',
-  cursor: 'pointer',
-  padding: 0,
+  padding: '6px 4px',
 };
 
 const iconBtnStyle = {
@@ -175,26 +159,26 @@ const iconBtnStyle = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: '3px',
+  gap: '6px',
   background: 'none',
   border: 'none',
   cursor: 'pointer',
-  fontSize: '11px',
+  fontSize: '13px',
   color: '#FF8852',
   fontFamily: 'Roboto, sans-serif',
-  padding: '2px 4px',
+  padding: '4px',
 };
 
 const dispatchBtnStyle = {
   width: '100%',
-  marginTop: '10px',
-  background: '#FF8852',
+  marginTop: '20px',
+  background: '#F4804E',
   color: '#FFFFFF',
   border: 'none',
   borderRadius: '8px',
-  padding: '10px 14px',
-  fontSize: '13px',
-  fontWeight: 600,
+  padding: '12px 14px',
+  fontSize: '15px',
+  fontWeight: 700,
   cursor: 'pointer',
   fontFamily: 'Roboto, sans-serif',
 };

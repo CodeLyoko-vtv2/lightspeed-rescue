@@ -31,8 +31,13 @@ export function TeamMarker({ team, location, activeFilter, onClick, dispatchMode
     return null;
   }
 
-  // Ngoài dispatchMode: ẩn nếu không khớp filter
-  if (!dispatchMode && activeFilter && activeFilter !== team.type) {
+  // Ẩn marker nếu không khớp filter (áp dụng cả trong và ngoài dispatchMode)
+  if (activeFilter && activeFilter !== team.type) {
+    return null;
+  }
+
+  // Ngoài dispatchMode và không có filter → ẩn hết team markers
+  if (!dispatchMode && !activeFilter) {
     return null;
   }
 
