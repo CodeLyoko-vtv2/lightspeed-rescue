@@ -24,4 +24,5 @@ dist-ssr
 *.sw?
 .env
 .env.local
-.env.productionadmin-web/lightspeed-rescue-firebase-adminsdk-fbsvc-673e908631.json
+.env.production
+lightspeed-rescue-firebase-adminsdk-fbsvc-673e908631.json
