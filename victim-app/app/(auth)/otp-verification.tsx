@@ -77,7 +77,7 @@ export default function OTPVerificationScreen() {
 
       if (!querySnapshot.empty) {
         // Đã có tài khoản thì đẩy sang Login (truyền kèm phone để pre-fill)
-        router.push({ pathname: "/(auth)/login", params: { phone } });
+        router.replace({ pathname: "/(auth)/login", params: { phone } });
       } else {
         router.replace({ pathname: "/(auth)/register", params: { phone } });
       }

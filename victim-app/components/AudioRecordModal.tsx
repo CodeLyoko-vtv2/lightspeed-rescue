@@ -2,12 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import React, { useEffect, useState } from "react";
 import {
-    Dimensions,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { COLORS } from "../constants/colors";
 
@@ -17,7 +17,6 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   onSave: (uri: string) => void;
-  // ✅ THÊM 2 PROP NÀY ĐỂ KẾT NỐI VỚI BÊN NGOÀI
   existingAudioUri: string | null;
   onDelete: () => void;
 }
@@ -37,7 +36,6 @@ export const AudioRecordModal = ({
   const [audioUri, setAudioUri] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
 
-  // ✅ KHI MỞ MODAL: Kiểm tra xem đã có âm thanh chưa để hiển thị đúng
   useEffect(() => {
     if (visible) {
       setAudioUri(existingAudioUri);
@@ -46,7 +44,6 @@ export const AudioRecordModal = ({
     }
   }, [visible, existingAudioUri]);
 
-  // Dọn dẹp bộ nhớ
   useEffect(() => {
     return sound
       ? () => {
@@ -55,16 +52,14 @@ export const AudioRecordModal = ({
       : undefined;
   }, [sound]);
 
-  // ✅ FIX LỖI 1: ĐỒNG HỒ NHẢY MƯỢT MÀ TỪNG MILI-GIÂY
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (isRecording && startTime) {
       interval = setInterval(() => {
         const currentDuration = Date.now() - startTime;
         setDurationMillis(currentDuration);
-        // Ép dừng ở 60s
         if (currentDuration >= 60000) stopRecording();
-      }, 50); // Cập nhật mỗi 50ms cho mượt
+      }, 50);
     }
     return () => clearInterval(interval);
   }, [isRecording, startTime]);
@@ -93,7 +88,7 @@ export const AudioRecordModal = ({
       setRecording(recording);
       setIsRecording(true);
       setAudioUri(null);
-      setStartTime(Date.now()); // Bắt đầu đếm giờ mượt
+      setStartTime(Date.now());
     } catch (err) {
       console.error("Lỗi khi bắt đầu ghi âm", err);
     }
@@ -117,7 +112,6 @@ export const AudioRecordModal = ({
       setIsPlaying(true);
       await sound.playAsync();
 
-      // Khi Play thì đồng hồ chạy theo file âm thanh
       sound.setOnPlaybackStatusUpdate((status: any) => {
         if (status.isLoaded) {
           setDurationMillis(status.positionMillis);
@@ -143,11 +137,10 @@ export const AudioRecordModal = ({
     }
   };
 
-  // ✅ FIX LỖI 2 & 3: BẤM THÙNG RÁC XÓA SẠCH VÀ BÁO RA NGOÀI
   const handleDelete = () => {
     setAudioUri(null);
     setDurationMillis(0);
-    onDelete(); // Gọi hàm xóa của Form bên ngoài
+    onDelete();
     if (!isRecording) onClose();
   };
 
@@ -188,9 +181,11 @@ export const AudioRecordModal = ({
           <View style={localStyles.waveArea}>{renderWaveform()}</View>
 
           <View style={localStyles.bottomControls}>
-            <Text style={localStyles.timerText}>
-              {formatTime(durationMillis)}
-            </Text>
+            <View style={localStyles.timerContainer}>
+              <Text style={localStyles.timerText}>
+                {formatTime(durationMillis)}
+              </Text>
+            </View>
 
             <View style={localStyles.btnRow}>
               {!audioUri ? (
@@ -217,10 +212,7 @@ export const AudioRecordModal = ({
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  style={[
-                    localStyles.actionBtn,
-                    { backgroundColor: "#E5E7EB" },
-                  ]}
+                  style={[localStyles.actionBtn, { backgroundColor: "#E5E7EB" }]}
                   onPress={isPlaying ? stopAudio : playAudio}
                 >
                   <Ionicons
@@ -235,10 +227,7 @@ export const AudioRecordModal = ({
               )}
 
               <TouchableOpacity
-                style={[
-                  localStyles.actionBtn,
-                  { backgroundColor: COLORS.primary },
-                ]}
+                style={[localStyles.actionBtn, { backgroundColor: COLORS.primary }]}
                 onPress={audioUri ? handleSave : stopRecording}
                 disabled={!audioUri && !isRecording}
               >
@@ -311,20 +300,39 @@ const localStyles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     top: -4,
   },
+  
+  // ✅ ĐÃ FIX LẠI TOÀN BỘ KHU VỰC ĐIỀU KHIỂN DƯỚI
   bottomControls: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    width: "100%",
   },
-  timerText: { fontSize: 32, fontWeight: "500", color: "#2D3142" },
-  btnRow: { flexDirection: "row", gap: 10 },
+  timerContainer: {
+    width: 100, // Đủ để ôm khít 00:00:00, không dư lấn sang phải
+  },
+  timerText: { 
+    fontSize: 24, // Hạ size một xíu để thoáng mắt
+    fontWeight: "500", 
+    color: "#2D3142", 
+    fontVariant: ['tabular-nums'] 
+  },
+  btnRow: { 
+    flexDirection: "row", 
+    gap: 6, // Thu hẹp khoảng cách giữa 2 nút
+    flex: 1, // Ép flex để nó tự rúc vào góc phải
+    justifyContent: "flex-end" 
+  },
   actionBtn: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 15,
+    paddingHorizontal: 12, // Gọt bớt lề thừa trong nút
     paddingVertical: 10,
     borderRadius: 20,
-    gap: 5,
+    gap: 4,
   },
-  actionText: { fontSize: 14, fontWeight: "bold" },
+  actionText: { 
+    fontSize: 13, // Giảm 1 tí xíu cho cân đối 
+    fontWeight: "bold" 
+  },
 });

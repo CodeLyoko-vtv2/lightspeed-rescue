@@ -1,5 +1,5 @@
 import { StyleSheet } from "react-native";
-import { COLORS } from "../colors";
+import { COLORS } from "./colors";
 
 export const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FDFDFD" },
@@ -11,15 +11,15 @@ export const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   backButton: { padding: 5 },
-  headerTitle: { fontSize: 18, fontWeight: "600", color: COLORS.textBold },
+  headerTitle: { fontSize: 28, fontWeight: "800", color: COLORS.textBold },
 
   scrollContent: { paddingHorizontal: 25, paddingBottom: 40 },
 
   avatarContainer: { alignItems: "center", marginTop: 30, marginBottom: 40 },
   avatarWrapper: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 210,
+    height: 210,
+    borderRadius: 200,
     backgroundColor: "#F0F2FF",
     justifyContent: "center",
     alignItems: "center",
@@ -31,7 +31,7 @@ export const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  avatar: { width: 100, height: 100, borderRadius: 50 },
+  avatar: { width: 210, height: 210, borderRadius: 200 },
   profileName: { fontSize: 22, fontWeight: "800", color: "#2D3142" },
   profileUsername: { fontSize: 14, color: COLORS.textMuted, marginTop: 4 },
 
@@ -49,15 +49,19 @@ export const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 2,
   },
-  input: { fontSize: 15, color: COLORS.textNormal, fontWeight: "500" },
+  input: { fontSize: 18, color: COLORS.textNormal, fontWeight: "500" },
   rowInput: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  inputText: { fontSize: 15, fontWeight: "500", color: COLORS.textNormal },
-  
-  countryPicker: { flexDirection: "row", alignItems: "center", marginRight: 10 },
+  inputText: { fontSize: 18, fontWeight: "500", color: COLORS.textNormal },
+
+  countryPicker: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 10,
+  },
   vLine: { width: 1, height: 20, backgroundColor: "#EEE", marginLeft: 10 },
 
   submitButton: {
@@ -73,5 +77,5 @@ export const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  submitButtonText: { color: "#FFF", fontSize: 18, fontWeight: "700" },
+  submitButtonText: { color: "#FFF", fontSize: 19, fontWeight: "700" },
 });

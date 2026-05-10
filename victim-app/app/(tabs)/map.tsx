@@ -9,11 +9,13 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-// ✅ Đã thêm lại Marker để vẽ chấm cam custom
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { doc, onSnapshot } from "firebase/firestore"; // ✅ Import thêm doc, onSnapshot
+import { db } from "../../firebaseConfig"; // ✅ Import db
 import { COLORS } from "../../constants/colors";
 import { styles } from "../../constants/(tabs)/map.styles";
 import { router } from "expo-router";
@@ -21,22 +23,71 @@ import { router } from "expo-router";
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
   
-  // ✅ State này giờ sẽ cập nhật liên tục tọa độ real
   const [location, setLocation] = useState<any>(null);
   const mapRef = useRef<MapView>(null);
 
+  const [activeRescueId, setActiveRescueId] = useState<string | null>(null);
+
+  // 1. ✅ LẮNG NGHE THÔNG BÁO ĐỂ "MỞ KHÓA" NÚT CHỈ ĐƯỜNG (Tiết kiệm Firebase)
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(notification => {
+  // ✅ Ép kiểu dữ liệu trả về thành any hoặc định nghĩa interface cho nó
+  const data = notification.request.content.data as { requestId?: string };
+  if (data && data.requestId) {
+    setActiveRescueId(data.requestId); // Hết lỗi gán {}
+  }
+});
+
+    const checkExistingNotifications = async () => {
+  const presented = await Notifications.getPresentedNotificationsAsync();
+  // ✅ Ép kiểu ở bước find để TypeScript biết n.request.content.data là gì
+  const rescueNoti = presented.find(n => {
+    const data = n.request.content.data as { requestId?: string };
+    return data?.requestId;
+  });
+
+  if (rescueNoti) {
+    const data = rescueNoti.request.content.data as { requestId?: string };
+    setActiveRescueId(data.requestId || null); // Hết lỗi unknown
+  }
+};
+    
+    checkExistingNotifications();
+
+    return () => subscription.remove();
+  }, []);
+
+  // 2. ✅ LẮNG NGHE ĐỂ "KHÓA LẠI" KHI ĐÃ HỦY HOẶC HOÀN THÀNH CA CỨU HỘ
+  useEffect(() => {
+    if (!activeRescueId) return; // Nếu chưa bật thì không cần nghe ngóng làm gì
+
+    // Chỉ cắm ống nghe vào ĐÚNG 1 document này, cực kỳ nhẹ máy
+    const unsub = onSnapshot(doc(db, "SOS_Requests", activeRescueId), (docSnap) => {
+      if (docSnap.exists()) {
+        const status = docSnap.data().status;
+        
+        // Nếu sếp ấn "Hủy SOS" hoặc 2 đội đã "Gặp nhau" (Resolved)
+        if (status === "CANCELLED" || status === "RESOLVED") {
+          setActiveRescueId(null); // 🔴 Tắt nút ngay lập tức
+          Notifications.dismissAllNotificationsAsync(); // 🔴 Dọn dẹp sạch sẽ thông báo trên điện thoại
+        }
+      }
+    });
+
+    return () => unsub();
+  }, [activeRescueId]);
+
+  // 3. THEO DÕI VỊ TRÍ REAL-TIME CỦA BẢN THÂN
   useEffect(() => {
     let locationSubscriber: Location.LocationSubscription | null = null;
 
     (async () => {
-      // 1. Xin quyền
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         Alert.alert("Lỗi", "Quyền GPS bị từ chối.");
         return;
       }
 
-      // 2. Lấy vị trí ban đầu nhanh để hiện bản đồ
       let curLocation = await Location.getCurrentPositionAsync({});
       const initialRegion = {
         latitude: curLocation.coords.latitude,
@@ -46,38 +97,30 @@ export default function MapScreen() {
       };
       setLocation(initialRegion);
 
-      // ✅ 3. BẮT ĐẦU THEO DÕI VỊ TRÍ REAL-TIME (Thay vì dùng interval 3s thủ công)
-      // Cách này mượt hơn và chính xác hơn việc cứ 3 giây gọi hàm lấy vị trí 1 lần.
       locationSubscriber = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High, // Độ chính xác cao
-          timeInterval: 1000, // Gợi ý cập nhật sau mỗi 1 giây (nhanh hơn 3s sếp yêu cầu để nhìn chấm nó di chuyển mượt)
-          distanceInterval: 1, // Cập nhật nếu di chuyển quá 1 mét
+          accuracy: Location.Accuracy.High, 
+          timeInterval: 1000, 
+          distanceInterval: 1, 
         },
         (newLocation) => {
-          // Cập nhật tọa độ mới vào state để Marker chấm cam nhảy theo
           setLocation({
             latitude: newLocation.coords.latitude,
             longitude: newLocation.coords.longitude,
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
           });
-          // console.log("GPS cập nhật:", newLocation.coords);
         }
       );
     })();
 
-    // ✅ CLEANUP: Khi thoát màn hình Map, phải tắt thám tử theo dõi GPS để đỡ tốn pin
     return () => {
-      if (locationSubscriber) {
-        locationSubscriber.remove();
-      }
+      if (locationSubscriber) locationSubscriber.remove();
     };
   }, []);
 
   const handleMyLocation = async () => {
     try {
-      // Vì location state giờ luôn update real-time, mình lấy luôn nó để dùng
       if (location && mapRef.current) {
         mapRef.current.animateCamera({ center: location, zoom: 15 }, { duration: 1000 });
       }
@@ -90,19 +133,16 @@ export default function MapScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      {/* --- BẢN ĐỒ GOOGLE --- */}
       {location && (
         <MapView
           ref={mapRef}
           provider={PROVIDER_GOOGLE}
           style={styles.map}
           initialRegion={location}
-          // ✅ 1. ẨN CHẤM XANH MẶC ĐỊNH CỦA GOOGLE ĐI SẾP
           showsUserLocation={false} 
           showsMyLocationButton={false}
           showsCompass={false}
         >
-          {/* ✅ 2. HIỆN CHẤM CAM CỦA MÌNH (Coordinate gắn với state location update liên tục) */}
           <Marker coordinate={location} anchor={{ x: 0.5, y: 0.5 }}>
             <View style={styles.orangeDotOuter}>
               <View style={styles.orangeDotInner} />
@@ -111,7 +151,6 @@ export default function MapScreen() {
         </MapView>
       )}
 
-      {/* --- THANH TÌM KIẾM NỔI --- */}
       <View style={[styles.searchWrapper, { top: insets.top + 10 }]}>
         <View style={styles.searchBar}>
           <Ionicons name="location" size={24} color={COLORS.primary} />
@@ -134,23 +173,30 @@ export default function MapScreen() {
         </ScrollView>
       </View>
 
-      {/* --- NÚT ĐIỀU KHIỂN BÊN PHẢI --- */}
       <View style={styles.rightButtons}>
         <TouchableOpacity style={styles.sideButton}><MaterialCommunityIcons name="layers-outline" size={24} color="#444" /></TouchableOpacity>
         <TouchableOpacity style={styles.sideButton}><MaterialCommunityIcons name="compass-outline" size={24} color="#E02020" /></TouchableOpacity>
         <TouchableOpacity style={styles.sideButton}><MaterialCommunityIcons name="bus" size={24} color="#444" /></TouchableOpacity>
       </View>
 
-      {/* --- NÚT ĐỊNH VỊ VÀ CHỈ ĐƯỜNG PHÍA DƯỚI --- */}
       <View style={styles.bottomButtons}>
         <TouchableOpacity style={styles.myLocationButton} onPress={handleMyLocation}>
           <Ionicons name="navigate-outline" size={28} color="#444" />
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.directionButton, { backgroundColor: "#B0BEC5" }]}
-          activeOpacity={1}
-          onPress={() => Alert.alert("Thông báo", "Bạn chưa phát tín hiệu cầu cứu nên chưa có tuyến đường đến đội cứu hộ.")}
+          style={[styles.directionButton, { backgroundColor: activeRescueId ? COLORS.primary : "#B0BEC5" }]}
+          activeOpacity={activeRescueId ? 0.7 : 1}
+          onPress={() => {
+            if (activeRescueId) {
+              router.push({
+                pathname: "/tracking-rescue",
+                params: { requestId: activeRescueId }
+              });
+            } else {
+              Alert.alert("Thông báo", "Bạn chưa phát tín hiệu cầu cứu hoặc chưa có đội cứu hộ tiếp nhận.");
+            }
+          }}
         >
           <MaterialCommunityIcons name="directions" size={30} color="#FFF" />
         </TouchableOpacity>

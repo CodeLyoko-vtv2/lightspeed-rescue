@@ -29,12 +29,12 @@ export const styles = StyleSheet.create({
     marginTop: 50,
     flex: 1,
     justifyContent: "flex-start",
-    paddingHorizontal: 30,
+    paddingHorizontal: 10,
   },
   logo: {
     width: width * 0.45, // ✅ Larger proportion from splash
     height: width * 0.45,
-    marginBottom: 10, // ✅ Khoảng cách thưa hơn
+    marginBottom: 15, // ✅ Khoảng cách thưa hơn
   },
   inputSection: {
     width: "100%",
@@ -42,7 +42,7 @@ export const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 22,
     color: COLORS.textNormal,
-    marginBottom: 30,
+    marginBottom: 15,
     fontWeight: "500",
   },
   inputWrapper: {
@@ -63,13 +63,13 @@ export const styles = StyleSheet.create({
   separator: {
     height: 24,
     width: 1.5,
-    backgroundColor: "#E8E8E8", // ✅ Thanh separator xám cực mảnh
+    backgroundColor: "#bdbdbd", // ✅ Thanh separator xám cực mảnh
     marginHorizontal: 10,
   },
   input: {
     flex: 1,
     fontSize: 20,
-    fontWeight: "600",
+    fontWeight: "500",
     color: COLORS.textNormal, // ✅ Màu đen
   },
   bottomSection: {

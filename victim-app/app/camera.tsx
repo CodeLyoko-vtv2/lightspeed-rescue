@@ -18,7 +18,7 @@ import {
     View,
 } from "react-native";
 import { COLORS } from "../constants/colors";
-import { eventEmitter } from "../untils/eventEmitter"; // ✅ Import cầu nối
+import { eventEmitter } from "../utils/eventEmitter"; // ✅ Import cầu nối
 
 const { width, height } = Dimensions.get("window");
 

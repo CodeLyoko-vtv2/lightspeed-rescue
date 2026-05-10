@@ -11,9 +11,9 @@ export const styles = StyleSheet.create({
     paddingVertical: 15,
     backgroundColor: "#dddddd66" // Màu sếp vừa chỉnh, rất mượt
   },
-  headerTitle: { fontSize: 20, fontWeight: "800", color: "#2D3142" },
+  headerTitle: { fontSize: 24, fontWeight: "800", color: "#2D3142" },
   addButton: { flexDirection: "row", alignItems: "center" },
-  addButtonText: { fontSize: 16, fontWeight: "600", color: COLORS.primary, marginLeft: 4 },
+  addButtonText: { fontSize: 17, fontWeight: "600", color: COLORS.primary, marginLeft: 4 },
 
   searchContainer: {
     flexDirection: "row",
@@ -33,7 +33,7 @@ export const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
   },
-  searchInput: { flex: 1, fontSize: 16, color: "#333" },
+  searchInput: { flex: 1, fontSize: 17, color: "#333" },
 
   listContent: { paddingHorizontal: 20, paddingBottom: 100 },
   groupCard: {
@@ -47,5 +47,5 @@ export const styles = StyleSheet.create({
   },
   groupInfoLeft: { flexDirection: "row", alignItems: "center" },
   groupImage: { width: 50, height: 50, borderRadius: 25 },
-  groupName: { fontSize: 18, fontWeight: "500", color: "#2D3142", marginLeft: 15 },
+  groupName: { fontSize: 19, fontWeight: "600", color: "#2D3142", marginLeft: 15 },
 });

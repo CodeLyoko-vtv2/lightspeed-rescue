@@ -12,7 +12,7 @@ export const styles = StyleSheet.create({
     borderBottomColor: "#EEE",
   },
   backButton: { padding: 5 },
-  searchInput: { flex: 1, marginHorizontal: 10, fontSize: 18, color: "#333" },
+  searchInput: { flex: 1, marginHorizontal: 10, fontSize: 19, color: "#333" },
 
   // Quick Actions
   quickActions: {
@@ -31,8 +31,8 @@ export const styles = StyleSheet.create({
     alignItems: "center",
   },
   actionTextWrapper: { marginLeft: 10 },
-  actionTitle: { fontSize: 15, fontWeight: "600", color: "#333" },
-  actionSubtitle: { fontSize: 12, color: "#999" },
+  actionTitle: { fontSize: 14, fontWeight: "600", color: "#333" },
+  actionSubtitle: { fontSize: 14, color: "#999" },
 
   divider: { height: 1, backgroundColor: "#EEE", marginHorizontal: 20 },
 
@@ -44,7 +44,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
   },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#000" },
+  sectionTitle: { fontSize: 18, fontWeight: "700", color: "#000" },
 
   // List Item
   recentItem: {
@@ -63,10 +63,10 @@ export const styles = StyleSheet.create({
     marginRight: 15,
   },
   locationInfo: { flex: 1, borderBottomWidth: 0.5, borderBottomColor: "#EEE", paddingBottom: 10 },
-  locationName: { fontSize: 16, fontWeight: "500", color: "#333" },
-  locationAddress: { fontSize: 13, color: "#777", marginTop: 2 },
-  locationStatus: { fontSize: 13, marginTop: 2, fontWeight: "500" },
+  locationName: { fontSize: 17, fontWeight: "500", color: "#333" },
+  locationAddress: { fontSize: 15, color: "#777", marginTop: 2 },
+  locationStatus: { fontSize: 15, marginTop: 2, fontWeight: "500" },
 
   footerButton: { paddingVertical: 25, alignItems: "center" },
-  footerText: { color: COLORS.primary, fontSize: 15, fontWeight: "600" },
+  footerText: { color: COLORS.primary, fontSize: 17, fontWeight: "600" },
 });

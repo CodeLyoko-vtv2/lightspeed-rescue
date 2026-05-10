@@ -3,7 +3,7 @@ import { StyleSheet } from "react-native";
 import { COLORS } from "../colors";
 
 export const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FB" },
+  container: { flex: 1, backgroundColor: "#F8F9FB", marginBottom: 50 },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -11,7 +11,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   headerTitle: {
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: "800",
     color: "#2D3142",
     marginLeft: 12,
@@ -21,7 +21,7 @@ export const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   sectionLabel: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
     color: COLORS.textLight,
     marginBottom: 15,
@@ -55,12 +55,12 @@ export const styles = StyleSheet.create({
     paddingLeft: 15,
   },
   profileName: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "800",
     color: "#FFF",
   },
   profileUsername: {
-    fontSize: 14,
+    fontSize: 22,
     color: "rgba(255,255,255,0.7)",
     marginTop: 2,
   },
@@ -104,12 +104,12 @@ export const styles = StyleSheet.create({
     paddingLeft: 15,
   },
   menuTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
     color: "#2D3142",
   },
   menuSubtitle: {
-    fontSize: 12,
+    fontSize: 15,
     color: COLORS.textMuted,
     marginTop: 2,
   },
