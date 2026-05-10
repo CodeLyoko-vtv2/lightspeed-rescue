@@ -47,7 +47,7 @@ export default function LienHeTabScreen() {
       <View style={styles.header}>
         <View style={styles.leftHeader}>
           <TouchableOpacity style={styles.backButton}
-          onPress={() => router.push("/LienHe")}>
+          onPress={() => router.back()}>
             <Image
               source={require("../../assets/icons/Back.png")}
               style={styles.backIcon}

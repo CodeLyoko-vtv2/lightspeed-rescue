@@ -36,7 +36,7 @@ export default function ThongTinCaNhanScreen() {
       <View style={styles.scrollContent}>
         {/* HEADER */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.push("/CaiDat")}>
+          <TouchableOpacity onPress={() => router.back()}>
             <Image
               source={require("../../assets/icons/Back.png")}
               style={styles.backIcon}

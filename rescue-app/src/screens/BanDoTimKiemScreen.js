@@ -23,7 +23,7 @@ export default function BanDoTimKiemScreen() {
       <View style={styles.header}>
         <View style={styles.searchBar}>
           {/* back */}
-          <TouchableOpacity onPress={() => router.push("/BanDo")}>
+          <TouchableOpacity onPress={() => router.back()}>
             <Image
               source={require("../../assets/icons/Back.png")}
               style={styles.backIcon}

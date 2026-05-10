@@ -59,7 +59,7 @@ export default function BanDoDuongDiScreen() {
       {/* TOP SEARCH */}
       <View style={styles.topPanel}>
         <TouchableOpacity style={styles.backButton}
-        onPress={() => router.push("/BanDoDaTimKiem")}>
+        onPress={() => router.back()}>
   <Image
     source={require("../../assets/icons/Back.png")}
     style={styles.backIcon}
