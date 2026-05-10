@@ -1,111 +1,695 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;700&family=DM+Sans:wght@400;500;700&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&display=swap');
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --font-primary: 'Roboto', sans-serif;
+  --font-secondary: 'Inter', sans-serif;
+  --font-display: 'Be Vietnam Pro', sans-serif;
+  --font-accent: 'DM Sans', sans-serif;
+  --color-primary-primary: #007BFF;
+  --color-primary-primary-strong: #2563EB;
+  --color-primary-primary-soft: #1A73E8;
+  --color-primary-primary-alt: #007AFF;
+  --color-status-critical: #FF3B30;
+  --color-status-high: #FF9500;
+  --color-status-medium: #F4B400;
+  --color-status-low: #34C759;
+  --color-status-success: #0F9D58;
+  --color-status-error: #CC0033;
+  --color-status-warning: #FFD60A;
+  --color-neutral-background: #F9FAFB;
+  --color-neutral-surface: #FFFFFF;
+  --color-neutral-surface-muted: #F3F4F6;
+  --color-neutral-border: #E5E7EB;
+  --color-neutral-border-strong: #D9D9D9;
+  --color-neutral-text-primary: #111827;
+  --color-neutral-text-secondary: #202124;
+  --color-neutral-text-muted: #6E6E71;
+  --color-neutral-text-placeholder: #9B9AA2;
+  --color-map-sos-pin: #FF3B30;
+  --color-map-team-pin: #0F9D58;
+  --color-map-destination-pin: #007BFF;
+  --color-map-route-line: #1A73E8;
+  --color-map-safe-zone: #34C759;
+  --color-map-map-overlay: rgba(0, 0, 0, 0.1);
+  --color-hex-000000-000: rgba(0, 0, 0, 0);
+  --color-hex-000000-005: rgba(0, 0, 0, 0.05);
+  --color-hex-000000-010: rgba(0, 0, 0, 0.1);
+  --color-hex-000000-020: rgba(0, 0, 0, 0.2);
+  --color-hex-000000-024: rgba(0, 0, 0, 0.24);
+  --color-hex-000000-025: rgba(0, 0, 0, 0.25);
+  --color-hex-000000-030: rgba(0, 0, 0, 0.3);
+  --color-hex-000000-040: rgba(0, 0, 0, 0.4);
+  --color-hex-000000-050: rgba(0, 0, 0, 0.5);
+  --color-hex-000000-054: rgba(0, 0, 0, 0.54);
+  --color-hex-000000-059: rgba(0, 0, 0, 0.59);
+  --color-hex-000000-060: rgba(0, 0, 0, 0.6);
+  --color-hex-000000-062: rgba(0, 0, 0, 0.62);
+  --color-hex-000000-070: rgba(0, 0, 0, 0.7);
+  --color-hex-000000-080: rgba(0, 0, 0, 0.8);
+  --color-hex-000000-085: rgba(0, 0, 0, 0.85);
+  --color-hex-000000-090: rgba(0, 0, 0, 0.9);
+  --color-hex-000000-100: #000000;
+  --color-hex-00001a-015: rgba(0, 0, 26, 0.15);
+  --color-hex-007aff-100: #007AFF;
+  --color-hex-007bff-100: #007BFF;
+  --color-hex-040404-100: #040404;
+  --color-hex-0601b4-100: #0601B4;
+  --color-hex-0b5c4d-100: #0B5C4D;
+  --color-hex-0d56eb-100: #0D56EB;
+  --color-hex-0d6e5d-100: #0D6E5D;
+  --color-hex-0f0f0f-090: rgba(15, 15, 15, 0.9);
+  --color-hex-0f9d58-100: #0F9D58;
+  --color-hex-101018-100: #101018;
+  --color-hex-111827-100: #111827;
+  --color-hex-130f26-100: #130F26;
+  --color-hex-13171b-100: #13171B;
+  --color-hex-151515-100: #151515;
+  --color-hex-15803d-100: #15803D;
+  --color-hex-161414-100: #161414;
+  --color-hex-161455-100: #161455;
+  --color-hex-18191c-100: #18191C;
+  --color-hex-181d27-100: #181D27;
+  --color-hex-188038-100: #188038;
+  --color-hex-1a73e8-100: #1A73E8;
+  --color-hex-1c1b1f-090: rgba(28, 27, 31, 0.9);
+  --color-hex-1c1c1e-100: #1C1C1E;
+  --color-hex-1e1e1e-100: #1E1E1E;
+  --color-hex-202124-060: rgba(32, 33, 36, 0.6);
+  --color-hex-202124-080: rgba(32, 33, 36, 0.8);
+  --color-hex-202124-100: #202124;
+  --color-hex-212529-100: #212529;
+  --color-hex-253556-100: #253556;
+  --color-hex-2563eb-100: #2563EB;
+  --color-hex-28125d-100: #28125D;
+  --color-hex-28a745-100: #28A745;
+  --color-hex-2f1964-100: #2F1964;
+  --color-hex-313a51-030: rgba(49, 58, 81, 0.3);
+  --color-hex-313a51-070: rgba(49, 58, 81, 0.7);
+  --color-hex-313a51-100: #313A51;
+  --color-hex-323232-100: #323232;
+  --color-hex-333333-100: #333333;
+  --color-hex-34a853-100: #34A853;
+  --color-hex-34c759-100: #34C759;
+  --color-hex-35353a-100: #35353A;
+  --color-hex-373737-100: #373737;
+  --color-hex-3a3a3c-100: #3A3A3C;
+  --color-hex-3c3c43-018: rgba(60, 60, 67, 0.18);
+  --color-hex-3c4043-100: #3C4043;
+  --color-hex-3f3f3f-100: #3F3F3F;
+  --color-hex-404040-100: #404040;
+  --color-hex-424b5a-050: rgba(66, 75, 90, 0.5);
+  --color-hex-424b5a-100: #424B5A;
+  --color-hex-4285f4-100: #4285F4;
+  --color-hex-495057-100: #495057;
+  --color-hex-4b5563-100: #4B5563;
+  --color-hex-4caf50-100: #4CAF50;
+  --color-hex-4f4f4f-100: #4F4F4F;
+  --color-hex-555555-100: #555555;
+  --color-hex-585858-100: #585858;
+  --color-hex-5f6368-100: #5F6368;
+  --color-hex-616161-100: #616161;
+  --color-hex-666161-100: #666161;
+  --color-hex-686767-100: #686767;
+  --color-hex-6b7280-100: #6B7280;
+  --color-hex-6e6e71-100: #6E6E71;
+  --color-hex-707070-100: #707070;
+  --color-hex-787880-036: rgba(120, 120, 128, 0.36);
+  --color-hex-7f7f7f-100: #7F7F7F;
+  --color-hex-808080-100: #808080;
+  --color-hex-867f7f-100: #867F7F;
+  --color-hex-86baff-100: #86BAFF;
+  --color-hex-8a38f5-100: #8A38F5;
+  --color-hex-8a8888-100: #8A8888;
+  --color-hex-8b8b8b-050: rgba(139, 139, 139, 0.5);
+  --color-hex-8b8b8b-100: #8B8B8B;
+  --color-hex-8e8e93-100: #8E8E93;
+  --color-hex-979797-100: #979797;
+  --color-hex-9b9aa2-100: #9B9AA2;
+  --color-hex-9ca3af-100: #9CA3AF;
+  --color-hex-a6f5d4-100: #A6F5D4;
+  --color-hex-a8a8a8-100: #A8A8A8;
+  --color-hex-ababab-100: #ABABAB;
+  --color-hex-aca9a9-100: #ACA9A9;
+  --color-hex-adb5bd-100: #ADB5BD;
+  --color-hex-b06745-100: #B06745;
+  --color-hex-b1aeae-100: #B1AEAE;
+  --color-hex-b1c2ff-100: #B1C2FF;
+  --color-hex-b5b5be-100: #B5B5BE;
+  --color-hex-b71c1c-100: #B71C1C;
+  --color-hex-b79f3d-100: #B79F3D;
+  --color-hex-bababa-100: #BABABA;
+  --color-hex-bbbbbb-100: #BBBBBB;
+  --color-hex-c4c4c4-060: rgba(196, 196, 196, 0.6);
+  --color-hex-c4c4c4-100: #C4C4C4;
+  --color-hex-c5c5c5-100: #C5C5C5;
+  --color-hex-c5c6cd-100: #C5C6CD;
+  --color-hex-c5c8cb-100: #C5C8CB;
+  --color-hex-c7cad3-100: #C7CAD3;
+  --color-hex-c8c8c8-100: #C8C8C8;
+  --color-hex-cc0033-100: #CC0033;
+  --color-hex-cccccc-100: #CCCCCC;
+  --color-hex-cecece-035: rgba(206, 206, 206, 0.35);
+  --color-hex-d0e8d3-100: #D0E8D3;
+  --color-hex-d1d5db-100: #D1D5DB;
+  --color-hex-d2d2d2-100: #D2D2D2;
+  --color-hex-d32f2f-100: #D32F2F;
+  --color-hex-d3d3d3-100: #D3D3D3;
+  --color-hex-d4cefa-100: #D4CEFA;
+  --color-hex-d7cac3-100: #D7CAC3;
+  --color-hex-d7d7d7-100: #D7D7D7;
+  --color-hex-d9d9d9-020: rgba(217, 217, 217, 0.2);
+  --color-hex-d9d9d9-050: rgba(217, 217, 217, 0.5);
+  --color-hex-d9d9d9-070: rgba(217, 217, 217, 0.7);
+  --color-hex-d9d9d9-080: rgba(217, 217, 217, 0.8);
+  --color-hex-d9d9d9-100: #D9D9D9;
+  --color-hex-d9d9dc-100: #D9D9DC;
+  --color-hex-d9dde9-100: #D9DDE9;
+  --color-hex-da251d-100: #DA251D;
+  --color-hex-dadada-100: #DADADA;
+  --color-hex-dadce0-100: #DADCE0;
+  --color-hex-dbe790-100: #DBE790;
+  --color-hex-dcdcdc-100: #DCDCDC;
+  --color-hex-dddddd-100: #DDDDDD;
+  --color-hex-e02323-100: #E02323;
+  --color-hex-e02424-100: #E02424;
+  --color-hex-e0e0e0-100: #E0E0E0;
+  --color-hex-e0e4e7-100: #E0E4E7;
+  --color-hex-e3f2fd-100: #E3F2FD;
+  --color-hex-e4e4e4-050: rgba(228, 228, 228, 0.5);
+  --color-hex-e4e4e4-100: #E4E4E4;
+  --color-hex-e5e4e4-100: #E5E4E4;
+  --color-hex-e5e5e5-100: #E5E5E5;
+  --color-hex-e5e5ea-100: #E5E5EA;
+  --color-hex-e5e7eb-100: #E5E7EB;
+  --color-hex-e6e2e2-100: #E6E2E2;
+  --color-hex-e6f4ea-100: #E6F4EA;
+  --color-hex-e7e7e7-100: #E7E7E7;
+  --color-hex-e8e8e8-100: #E8E8E8;
+  --color-hex-e8eaed-100: #E8EAED;
+  --color-hex-e8f0fe-100: #E8F0FE;
+  --color-hex-e8f5e9-100: #E8F5E9;
+  --color-hex-e9ecef-100: #E9ECEF;
+  --color-hex-e9f4ff-100: #E9F4FF;
+  --color-hex-ea4335-100: #EA4335;
+  --color-hex-eb2924-100: #EB2924;
+  --color-hex-ebebf5-030: rgba(235, 235, 245, 0.3);
+  --color-hex-ebebf5-060: rgba(235, 235, 245, 0.6);
+  --color-hex-ec5865-100: #EC5865;
+  --color-hex-ececed-100: #ECECED;
+  --color-hex-eceff7-100: #ECEFF7;
+  --color-hex-ecf3fe-100: #ECF3FE;
+  --color-hex-eeeeee-100: #EEEEEE;
+  --color-hex-eef2f8-100: #EEF2F8;
+  --color-hex-ef4444-100: #EF4444;
+  --color-hex-efefef-100: #EFEFEF;
+  --color-hex-f0f0f0-100: #F0F0F0;
+  --color-hex-f1f3f4-100: #F1F3F4;
+  --color-hex-f2a6a6-100: #F2A6A6;
+  --color-hex-f2f2f2-100: #F2F2F2;
+  --color-hex-f2f2f7-100: #F2F2F7;
+  --color-hex-f2fff3-100: #F2FFF3;
+  --color-hex-f3f2f2-100: #F3F2F2;
+  --color-hex-f3f4f6-100: #F3F4F6;
+  --color-hex-f3f5f6-100: #F3F5F6;
+  --color-hex-f4b400-100: #F4B400;
+  --color-hex-f5a6a6-100: #F5A6A6;
+  --color-hex-f5a6df-100: #F5A6DF;
+  --color-hex-f5e8a6-100: #F5E8A6;
+  --color-hex-f5f5fa-050: rgba(245, 245, 250, 0.5);
+  --color-hex-f5f5fa-100: #F5F5FA;
+  --color-hex-f6f7f8-100: #F6F7F8;
+  --color-hex-f8f8f8-100: #F8F8F8;
+  --color-hex-f8f9fa-100: #F8F9FA;
+  --color-hex-f9d2d2-100: #F9D2D2;
+  --color-hex-f9f9f9-100: #F9F9F9;
+  --color-hex-f9fafb-100: #F9FAFB;
+  --color-hex-fae8e9-100: #FAE8E9;
+  --color-hex-fafbff-100: #FAFBFF;
+  --color-hex-fbbc04-100: #FBBC04;
+  --color-hex-fefafb-100: #FEFAFB;
+  --color-hex-fefdf6-100: #FEFDF6;
+  --color-hex-ff0000-100: #FF0000;
+  --color-hex-ff3b30-100: #FF3B30;
+  --color-hex-ff5e3a-100: #FF5E3A;
+  --color-hex-ff6b4a-100: #FF6B4A;
+  --color-hex-ff7e7b-100: #FF7E7B;
+  --color-hex-ff8852-010: rgba(255, 136, 82, 0.1);
+  --color-hex-ff8852-020: rgba(255, 136, 82, 0.2);
+  --color-hex-ff8852-050: rgba(255, 136, 82, 0.5);
+  --color-hex-ff8852-100: #FF8852;
+  --color-hex-ff9500-100: #FF9500;
+  --color-hex-ffad59-100: #FFAD59;
+  --color-hex-ffad5c-100: #FFAD5C;
+  --color-hex-ffd3c6-100: #FFD3C6;
+  --color-hex-ffd60a-100: #FFD60A;
+  --color-hex-ffe5e5-100: #FFE5E5;
+  --color-hex-ffebee-100: #FFEBEE;
+  --color-hex-ffeeee-100: #FFEEEE;
+  --color-hex-fff5ec-100: #FFF5EC;
+  --color-hex-fffdfc-100: #FFFDFC;
+  --color-hex-fffefe-100: #FFFEFE;
+  --color-hex-ffff00-100: #FFFF00;
+  --color-hex-ffffff-000: rgba(255, 255, 255, 0);
+  --color-hex-ffffff-000: rgba(255, 255, 255, 0.002);
+  --color-hex-ffffff-010: rgba(255, 255, 255, 0.1);
+  --color-hex-ffffff-018: rgba(255, 255, 255, 0.18);
+  --color-hex-ffffff-030: rgba(255, 255, 255, 0.3);
+  --color-hex-ffffff-036: rgba(255, 255, 255, 0.36);
+  --color-hex-ffffff-040: rgba(255, 255, 255, 0.4);
+  --color-hex-ffffff-050: rgba(255, 255, 255, 0.5);
+  --color-hex-ffffff-060: rgba(255, 255, 255, 0.6);
+  --color-hex-ffffff-070: rgba(255, 255, 255, 0.7);
+  --color-hex-ffffff-080: rgba(255, 255, 255, 0.8);
+  --color-hex-ffffff-095: rgba(255, 255, 255, 0.95);
+  --color-hex-ffffff-100: #FFFFFF;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-xxl: 24px;
+  --space-xxxl: 32px;
+  --space-jumbo: 40px;
+  --space-mega: 48px;
+  --space-giga: 64px;
+  --radius-card: 12px;
+  --radius-button: 8px;
+  --radius-input: 8px;
+  --radius-badge: 9999px;
+  --radius-modal: 16px;
+  --shadow-card: 0 4px 4px rgba(0, 0, 0, 0.25);
+  --shadow-modal: 0 4px 6px -4px rgba(0, 0, 0, 0.1), 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-dropdown: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --text-style-001: 700 15px/18.975000381469727px 'Be Vietnam Pro', sans-serif;
+  --text-style-002: 700 20px/25.299999237060547px 'Be Vietnam Pro', sans-serif;
+  --text-style-003: 400 30px/37.95000076293945px 'Be Vietnam Pro', sans-serif;
+  --text-style-004: 500 9px/13px 'DM Sans', sans-serif;
+  --text-style-005: 500 9.160000801086426px/13.740001678466797px 'DM Sans', sans-serif;
+  --text-style-006: 400 10px/10px 'DM Sans', sans-serif;
+  --text-style-007: 400 11px/12px 'DM Sans', sans-serif;
+  --text-style-008: 400 11px/16px 'DM Sans', sans-serif;
+  --text-style-009: 400 13px/19.5px 'DM Sans', sans-serif;
+  --text-style-010: 500 13px/19.5px 'DM Sans', sans-serif;
+  --text-style-011: 500 14px/18.22800064086914px 'DM Sans', sans-serif;
+  --text-style-012: 500 14px/19px 'DM Sans', sans-serif;
+  --text-style-013: 700 14px/19px 'DM Sans', sans-serif;
+  --text-style-014: 700 16px/24px 'DM Sans', sans-serif;
+  --text-style-015: 500 21.33333396911621px/32px 'DM Sans', sans-serif;
+  --text-style-016: 500 22.89999771118164px/34.349998474121094px 'DM Sans', sans-serif;
+  --text-style-017: 500 23.000001907348633px/34.500003814697266px 'DM Sans', sans-serif;
+  --text-style-018: 500 26.480005264282227px/39.720008850097656px 'DM Sans', sans-serif;
+  --text-style-019: 500 36.77205276489258px/47.87721252441406px 'DM Sans', sans-serif;
+  --text-style-020: 500 56.033599853515625px/84.05039978027344px 'DM Sans', sans-serif;
+  --text-style-021: 500 57.499996185302734px/86.24999237060547px 'DM Sans', sans-serif;
+  --text-style-022: 500 60.41122817993164px/90.6168441772461px 'DM Sans', sans-serif;
+  --text-style-023: 500 66.19999694824219px/99.29999542236328px 'DM Sans', sans-serif;
+  --text-style-024: 500 72.54253387451172px/108.81379699707031px 'DM Sans', sans-serif;
+  --text-style-025: 500 151.02804565429688px/226.5420684814453px 'DM Sans', sans-serif;
+  --text-style-026: 500 181.3562774658203px/272.034423828125px 'DM Sans', sans-serif;
+  --text-style-027: 900 16px/16px 'Font Awesome 5 Free', sans-serif;
+  --text-style-028: 900 20px/28px 'Font Awesome 5 Free', sans-serif;
+  --text-style-029: 500 8px/9.681818008422852px 'Inter', sans-serif;
+  --text-style-030: 500 10px/12.102272033691406px 'Inter', sans-serif;
+  --text-style-031: 400 12px/14.522727012634277px 'Inter', sans-serif;
+  --text-style-032: 400 12px/28px 'Inter', sans-serif;
+  --text-style-033: 500 12px/14.522727012634277px 'Inter', sans-serif;
+  --text-style-034: 500 12px/16px 'Inter', sans-serif;
+  --text-style-035: 500 12px/28px 'Inter', sans-serif;
+  --text-style-036: 500 12px/32px 'Inter', sans-serif;
+  --text-style-037: 500 12px/38.705345153808594px 'Inter', sans-serif;
+  --text-style-038: 600 12px/14.522727012634277px 'Inter', sans-serif;
+  --text-style-039: 600 12px/28px 'Inter', sans-serif;
+  --text-style-040: 600 12px/32px 'Inter', sans-serif;
+  --text-style-041: 700 12px/14.522727012634277px 'Inter', sans-serif;
+  --text-style-042: 700 12.600000381469727px/15.24886417388916px 'Inter', sans-serif;
+  --text-style-043: 700 12.71165657043457px/15.383993148803711px 'Inter', sans-serif;
+  --text-style-044: 700 12.800000190734863px/15.4909086227417px 'Inter', sans-serif;
+  --text-style-045: 400 13px/15.732954025268555px 'Inter', sans-serif;
+  --text-style-046: 600 13px/15.732954025268555px 'Inter', sans-serif;
+  --text-style-047: 600 13px/18.200000762939453px 'Inter', sans-serif;
+  --text-style-048: 500 13.300000190734863px/16.096023559570312px 'Inter', sans-serif;
+  --text-style-049: 400 14px/16.94318199157715px 'Inter', sans-serif;
+  --text-style-050: 400 14px/16.94318199157715px 'Inter', sans-serif;
+  --text-style-051: 400 14px/20px 'Inter', sans-serif;
+  --text-style-052: 400 14px/20px 'Inter', sans-serif;
+  --text-style-053: 400 14px/28px 'Inter', sans-serif;
+  --text-style-054: 500 14px/16.94318199157715px 'Inter', sans-serif;
+  --text-style-055: 500 14px/21px 'Inter', sans-serif;
+  --text-style-056: 500 14px/28px 'Inter', sans-serif;
+  --text-style-057: 500 14px/38.705345153808594px 'Inter', sans-serif;
+  --text-style-058: 600 14px/16.94318199157715px 'Inter', sans-serif;
+  --text-style-059: 600 14px/19.600000381469727px 'Inter', sans-serif;
+  --text-style-060: 700 14px/16.94318199157715px 'Inter', sans-serif;
+  --text-style-061: 700 14px/28px 'Inter', sans-serif;
+  --text-style-062: 400 15px/18.15340805053711px 'Inter', sans-serif;
+  --text-style-063: 500 15px/18.15340805053711px 'Inter', sans-serif;
+  --text-style-064: 600 15px/18.15340805053711px 'Inter', sans-serif;
+  --text-style-065: 400 16px/19.363636016845703px 'Inter', sans-serif;
+  --text-style-066: 500 16px/19.363636016845703px 'Inter', sans-serif;
+  --text-style-067: 500 16px/28px 'Inter', sans-serif;
+  --text-style-068: 600 16px/19.363636016845703px 'Inter', sans-serif;
+  --text-style-069: 600 16px/28px 'Inter', sans-serif;
+  --text-style-070: 700 16px/19.363636016845703px 'Inter', sans-serif;
+  --text-style-071: 400 18px/28px 'Inter', sans-serif;
+  --text-style-072: 400 18px/32px 'Inter', sans-serif;
+  --text-style-073: 500 18px/21.784090042114258px 'Inter', sans-serif;
+  --text-style-074: 600 18px/21.784090042114258px 'Inter', sans-serif;
+  --text-style-075: 600 18px/28px 'Inter', sans-serif;
+  --text-style-076: 700 18px/21.784090042114258px 'Inter', sans-serif;
+  --text-style-077: 700 18px/28px 'Inter', sans-serif;
+  --text-style-078: 700 19.200000762939453px/29.866668701171875px 'Inter', sans-serif;
+  --text-style-079: 700 19.5px/30.33333396911621px 'Inter', sans-serif;
+  --text-style-080: 400 20px/20px 'Inter', sans-serif;
+  --text-style-081: 400 20px/24.204544067382812px 'Inter', sans-serif;
+  --text-style-082: 500 20px/24.204544067382812px 'Inter', sans-serif;
+  --text-style-083: 600 20px/24.204544067382812px 'Inter', sans-serif;
+  --text-style-084: 700 20px/28px 'Inter', sans-serif;
+  --text-style-085: 800 20px/24.204544067382812px 'Inter', sans-serif;
+  --text-style-086: 500 21.612499237060547px/26.156036376953125px 'Inter', sans-serif;
+  --text-style-087: 600 22px/28px 'Inter', sans-serif;
+  --text-style-088: 700 22px/30px 'Inter', sans-serif;
+  --text-style-089: 400 22.380281448364258px/52.22066116333008px 'Inter', sans-serif;
+  --text-style-090: 500 22.380281448364258px/27.08522605895996px 'Inter', sans-serif;
+  --text-style-091: 500 22.380281448364258px/59.68075180053711px 'Inter', sans-serif;
+  --text-style-092: 500 22.380281448364258px/72.1863784790039px 'Inter', sans-serif;
+  --text-style-093: 600 22.380281448364258px/52.22066116333008px 'Inter', sans-serif;
+  --text-style-094: 600 22.380281448364258px/59.68075180053711px 'Inter', sans-serif;
+  --text-style-095: 500 22.38167953491211px/27.086917877197266px 'Inter', sans-serif;
+  --text-style-096: 500 22.38167953491211px/59.684478759765625px 'Inter', sans-serif;
+  --text-style-097: 500 22.38167953491211px/72.19088745117188px 'Inter', sans-serif;
+  --text-style-098: 600 22.38167953491211px/59.684478759765625px 'Inter', sans-serif;
+  --text-style-099: 500 22.935293197631836px/27.756916046142578px 'Inter', sans-serif;
+  --text-style-100: 500 23px/27.83522605895996px 'Inter', sans-serif;
+  --text-style-101: 500 23.932958602905273px/63.821224212646484px 'Inter', sans-serif;
+  --text-style-102: 600 23.932958602905273px/63.821224212646484px 'Inter', sans-serif;
+  --text-style-103: 500 24px/29.045454025268555px 'Inter', sans-serif;
+  --text-style-104: 600 24px/29.045454025268555px 'Inter', sans-serif;
+  --text-style-105: 800 24px/29.045454025268555px 'Inter', sans-serif;
+  --text-style-106: 500 24.34591293334961px/29.464086532592773px 'Inter', sans-serif;
+  --text-style-107: 400 24.947368621826172px/58.21052551269531px 'Inter', sans-serif;
+  --text-style-108: 600 24.947368621826172px/58.21052551269531px 'Inter', sans-serif;
+  --text-style-109: 200 25.814090728759766px/31.240915298461914px 'Inter', sans-serif;
+  --text-style-110: 500 26.110328674316406px/72.1863784790039px 'Inter', sans-serif;
+  --text-style-111: 700 26.11033058166504px/52.22066116333008px 'Inter', sans-serif;
+  --text-style-112: 500 26.11195945739746px/72.19088745117188px 'Inter', sans-serif;
+  --text-style-113: 700 28px/33.8863639831543px 'Inter', sans-serif;
+  --text-style-114: 700 29.105262756347656px/58.21052551269531px 'Inter', sans-serif;
+  --text-style-115: 600 29.840375900268555px/52.22066116333008px 'Inter', sans-serif;
+  --text-style-116: 600 29.842239379882812px/52.22391891479492px 'Inter', sans-serif;
+  --text-style-117: 500 30px/36.30681610107422px 'Inter', sans-serif;
+  --text-style-118: 600 30px/36.30681610107422px 'Inter', sans-serif;
+  --text-style-119: 800 30px/36.30681610107422px 'Inter', sans-serif;
+  --text-style-120: 400 30.89655113220215px/44.1379280090332px 'Inter', sans-serif;
+  --text-style-121: 500 32px/38.727272033691406px 'Inter', sans-serif;
+  --text-style-122: 600 32px/38.727272033691406px 'Inter', sans-serif;
+  --text-style-123: 600 32px/38.727272033691406px 'Inter', sans-serif;
+  --text-style-124: 600 32px/44.79999923706055px 'Inter', sans-serif;
+  --text-style-125: 600 32.657981872558594px/39.52357864379883px 'Inter', sans-serif;
+  --text-style-126: 400 33.099998474121094px/40.05852127075195px 'Inter', sans-serif;
+  --text-style-127: 400 33.5704231262207px/52.22066116333008px 'Inter', sans-serif;
+  --text-style-128: 400 33.57251739501953px/52.22391891479492px 'Inter', sans-serif;
+  --text-style-129: 500 35.15283966064453px/52.7292594909668px 'Inter', sans-serif;
+  --text-style-130: 500 36.720001220703125px/44.439544677734375px 'Inter', sans-serif;
+  --text-style-131: 500 36.959999084472656px/44.72999954223633px 'Inter', sans-serif;
+  --text-style-132: 700 38px/79.36000061035156px 'Inter', sans-serif;
+  --text-style-133: 200 39.48207473754883px/47.782283782958984px 'Inter', sans-serif;
+  --text-style-134: 500 40.47161865234375px/60.707427978515625px 'Inter', sans-serif;
+  --text-style-135: 600 42.55714416503906px/51.503814697265625px 'Inter', sans-serif;
+  --text-style-136: 700 42.55714416503906px/51.503814697265625px 'Inter', sans-serif;
+  --text-style-137: 500 45.900001525878906px/55.54943084716797px 'Inter', sans-serif;
+  --text-style-138: 500 46px/55.67045211791992px 'Inter', sans-serif;
+  --text-style-139: 700 46px/79.36000061035156px 'Inter', sans-serif;
+  --text-style-140: 600 47px/56.880680084228516px 'Inter', sans-serif;
+  --text-style-141: 500 47.27834701538086px/57.21754455566406px 'Inter', sans-serif;
+  --text-style-142: 600 47.27834701538086px/57.21754455566406px 'Inter', sans-serif;
+  --text-style-143: 900 48px/58.09090805053711px 'Inter', sans-serif;
+  --text-style-144: 600 48.55172348022461px/61.7931022644043px 'Inter', sans-serif;
+  --text-style-145: 700 50.430240631103516px/78.44703674316406px 'Inter', sans-serif;
+  --text-style-146: 700 51.21820831298828px/79.67277526855469px 'Inter', sans-serif;
+  --text-style-147: 500 56.766845703125px/68.7007827758789px 'Inter', sans-serif;
+  --text-style-148: 500 60.24126052856445px/72.9056167602539px 'Inter', sans-serif;
+  --text-style-149: 600 61.975685119628906px/86.76596069335938px 'Inter', sans-serif;
+  --text-style-150: 500 62.861717224121094px/167.63124084472656px 'Inter', sans-serif;
+  --text-style-151: 600 62.861717224121094px/167.63124084472656px 'Inter', sans-serif;
+  --text-style-152: 500 63.94636154174805px/77.3896255493164px 'Inter', sans-serif;
+  --text-style-153: 500 65.49468994140625px/79.26345825195312px 'Inter', sans-serif;
+  --text-style-154: 500 65.49468994140625px/174.6525115966797px 'Inter', sans-serif;
+  --text-style-155: 500 65.49468994140625px/211.2495574951172px 'Inter', sans-serif;
+  --text-style-156: 600 65.49468994140625px/174.6525115966797px 'Inter', sans-serif;
+  --text-style-157: 400 65.52613067626953px/152.89430236816406px 'Inter', sans-serif;
+  --text-style-158: 600 65.52613067626953px/152.89430236816406px 'Inter', sans-serif;
+  --text-style-159: 400 65.9385757446289px/153.856689453125px 'Inter', sans-serif;
+  --text-style-160: 500 65.9385757446289px/79.8006591796875px 'Inter', sans-serif;
+  --text-style-161: 500 65.9385757446289px/175.83619689941406px 'Inter', sans-serif;
+  --text-style-162: 500 65.9385757446289px/212.6812744140625px 'Inter', sans-serif;
+  --text-style-163: 600 65.9385757446289px/153.856689453125px 'Inter', sans-serif;
+  --text-style-164: 600 65.9385757446289px/175.83619689941406px 'Inter', sans-serif;
+  --text-style-165: 200 67.80265045166016px/82.0566177368164px 'Inter', sans-serif;
+  --text-style-166: 500 76.41047668457031px/211.2495574951172px 'Inter', sans-serif;
+  --text-style-167: 700 76.44715118408203px/152.89430236816406px 'Inter', sans-serif;
+  --text-style-168: 500 76.92833709716797px/212.6812744140625px 'Inter', sans-serif;
+  --text-style-169: 700 76.9283447265625px/153.856689453125px 'Inter', sans-serif;
+  --text-style-170: 400 81.15210723876953px/115.93156433105469px 'Inter', sans-serif;
+  --text-style-171: 400 82px/99.23863220214844px 'Inter', sans-serif;
+  --text-style-172: 800 82px/99.23863220214844px 'Inter', sans-serif;
+  --text-style-173: 500 84.0503921508789px/101.72007751464844px 'Inter', sans-serif;
+  --text-style-174: 600 84.0503921508789px/117.67054748535156px 'Inter', sans-serif;
+  --text-style-175: 600 85.77863311767578px/103.81163787841797px 'Inter', sans-serif;
+  --text-style-176: 700 85.79108428955078px/148.00827026367188px 'Inter', sans-serif;
+  --text-style-177: 700 85.79644012451172px/148.0175018310547px 'Inter', sans-serif;
+  --text-style-178: 600 87.32625579833984px/152.82095336914062px 'Inter', sans-serif;
+  --text-style-179: 600 87.91809844970703px/153.856689453125px 'Inter', sans-serif;
+  --text-style-180: 400 90.67813873291016px/109.74115753173828px 'Inter', sans-serif;
+  --text-style-181: 500 92.3315658569336px/138.49734497070312px 'Inter', sans-serif;
+  --text-style-182: 900 92.96353149414062px/112.50699615478516px 'Inter', sans-serif;
+  --text-style-183: 900 94.75698852539062px/114.677490234375px 'Inter', sans-serif;
+  --text-style-184: 600 96px/96px 'Inter', sans-serif;
+  --text-style-185: 400 98.24203491210938px/152.82095336914062px 'Inter', sans-serif;
+  --text-style-186: 400 98.9078598022461px/153.856689453125px 'Inter', sans-serif;
+  --text-style-187: 500 100.59520721435547px/121.7430648803711px 'Inter', sans-serif;
+  --text-style-188: 500 101.252685546875px/122.53875732421875px 'Inter', sans-serif;
+  --text-style-189: 200 108.16197204589844px/130.9005584716797px 'Inter', sans-serif;
+  --text-style-190: 500 110.87285614013672px/166.3092803955078px 'Inter', sans-serif;
+  --text-style-191: 600 115px/139.17613220214844px 'Inter', sans-serif;
+  --text-style-192: 600 116.586181640625px/141.0957794189453px 'Inter', sans-serif;
+  --text-style-193: 700 116.586181640625px/141.0957794189453px 'Inter', sans-serif;
+  --text-style-194: 800 120px/145.22726440429688px 'Inter', sans-serif;
+  --text-style-195: 500 125.74401092529297px/152.1788330078125px 'Inter', sans-serif;
+  --text-style-196: 500 126.0179672241211px/152.5103759765625px 'Inter', sans-serif;
+  --text-style-197: 900 126.07559204101562px/152.5801239013672px 'Inter', sans-serif;
+  --text-style-198: 600 127.52473449707031px/162.30421447753906px 'Inter', sans-serif;
+  --text-style-199: 600 169.78369140625px/237.69715881347656px 'Inter', sans-serif;
+  --text-style-200: 700 251.06298828125px/433.13824462890625px 'Inter', sans-serif;
+  --text-style-201: 700 252.7645263671875px/436.0737609863281px 'Inter', sans-serif;
+  --text-style-202: 900 254.675537109375px/308.21527099609375px 'Inter', sans-serif;
+  --text-style-203: 900 259.5887451171875px/314.161376953125px 'Inter', sans-serif;
+  --text-style-204: 600 315.044921875px/381.27593994140625px 'Inter', sans-serif;
+  --text-style-205: 400 12px/16px 'Noto Sans', sans-serif;
+  --text-style-206: 600 12px/16px 'Noto Sans', sans-serif;
+  --text-style-207: 400 14px/20px 'Noto Sans', sans-serif;
+  --text-style-208: 700 14px/20px 'Noto Sans', sans-serif;
+  --text-style-209: 400 12px/14px 'Poppins', sans-serif;
+  --text-style-210: 600 12px/14px 'Poppins', sans-serif;
+  --text-style-211: 500 32px/48px 'Poppins', sans-serif;
+  --text-style-212: 700 100px/150px 'Poppins', sans-serif;
+  --text-style-213: 600 12px/14.088000297546387px 'Raleway', sans-serif;
+  --text-style-214: 600 22.380281448364258px/26.274450302124023px 'Raleway', sans-serif;
+  --text-style-215: 600 22.38167953491211px/26.276092529296875px 'Raleway', sans-serif;
+  --text-style-216: 600 65.49468994140625px/76.8907699584961px 'Raleway', sans-serif;
+  --text-style-217: 600 65.9385757446289px/77.4118881225586px 'Raleway', sans-serif;
+  --text-style-218: 400 8px/9.375px 'Roboto', sans-serif;
+  --text-style-219: 400 9px/10.546875px 'Roboto', sans-serif;
+  --text-style-220: 400 10px/15px 'Roboto', sans-serif;
+  --text-style-221: 400 11px/12.890625px 'Roboto', sans-serif;
+  --text-style-222: 500 11px/12.890625px 'Roboto', sans-serif;
+  --text-style-223: 700 11px/12.890625px 'Roboto', sans-serif;
+  --text-style-224: 400 12px/14.0625px 'Roboto', sans-serif;
+  --text-style-225: 400 12px/14.073749542236328px 'Roboto', sans-serif;
+  --text-style-226: 700 12px/14.0625px 'Roboto', sans-serif;
+  --text-style-227: 400 13px/15.234375px 'Roboto', sans-serif;
+  --text-style-228: 400 13px/18.200000762939453px 'Roboto', sans-serif;
+  --text-style-229: 500 13px/15.234375px 'Roboto', sans-serif;
+  --text-style-230: 700 13px/15.234375px 'Roboto', sans-serif;
+  --text-style-231: 700 13px/18.200000762939453px 'Roboto', sans-serif;
+  --text-style-232: 400 13.899999618530273px/16.2890625px 'Roboto', sans-serif;
+  --text-style-233: 400 14px/16.40625px 'Roboto', sans-serif;
+  --text-style-234: 400 14px/16.40625px 'Roboto', sans-serif;
+  --text-style-235: 400 14px/16.419374465942383px 'Roboto', sans-serif;
+  --text-style-236: 400 14px/19.600000381469727px 'Roboto', sans-serif;
+  --text-style-237: 500 14px/16.419374465942383px 'Roboto', sans-serif;
+  --text-style-238: 500 14px/16.799999237060547px 'Roboto', sans-serif;
+  --text-style-239: 700 14px/16.40625px 'Roboto', sans-serif;
+  --text-style-240: 700 14px/19.600000381469727px 'Roboto', sans-serif;
+  --text-style-241: 700 14.800000190734863px/17.34375px 'Roboto', sans-serif;
+  --text-style-242: 400 15px/17.578125px 'Roboto', sans-serif;
+  --text-style-243: 500 15px/17.578125px 'Roboto', sans-serif;
+  --text-style-244: 500 15px/17.578125px 'Roboto', sans-serif;
+  --text-style-245: 500 15px/22px 'Roboto', sans-serif;
+  --text-style-246: 600 15px/22px 'Roboto', sans-serif;
+  --text-style-247: 700 15px/17.578125px 'Roboto', sans-serif;
+  --text-style-248: 700 15.800000190734863px/22.399999618530273px 'Roboto', sans-serif;
+  --text-style-249: 400 16px/18.75px 'Roboto', sans-serif;
+  --text-style-250: 500 16px/18.75px 'Roboto', sans-serif;
+  --text-style-251: 700 16px/18.75px 'Roboto', sans-serif;
+  --text-style-252: 700 16px/22.399999618530273px 'Roboto', sans-serif;
+  --text-style-253: 700 16px/24px 'Roboto', sans-serif;
+  --text-style-254: 400 17px/19.921875px 'Roboto', sans-serif;
+  --text-style-255: 700 17px/19.921875px 'Roboto', sans-serif;
+  --text-style-256: 500 18px/21.09375px 'Roboto', sans-serif;
+  --text-style-257: 700 18px/18px 'Roboto', sans-serif;
+  --text-style-258: 700 18px/21.09375px 'Roboto', sans-serif;
+  --text-style-259: 700 18px/25.200000762939453px 'Roboto', sans-serif;
+  --text-style-260: 400 20px/23.4375px 'Roboto', sans-serif;
+  --text-style-261: 500 22.2608699798584px/26.086957931518555px 'Roboto', sans-serif;
+  --text-style-262: 500 24px/28.125px 'Roboto', sans-serif;
+  --text-style-263: 500 24.085308074951172px/28.2249698638916px 'Roboto', sans-serif;
+  --text-style-264: 500 26px/30.46875px 'Roboto', sans-serif;
+  --text-style-265: 400 26.02817153930664px/30.50176429748535px 'Roboto', sans-serif;
+  --text-style-266: 400 26.02817153930664px/30.52616310119629px 'Roboto', sans-serif;
+  --text-style-267: 300 28px/32.8125px 'Roboto', sans-serif;
+  --text-style-268: 400 30.189701080322266px/35.37855529785156px 'Roboto', sans-serif;
+  --text-style-269: 400 30.366199493408203px/35.58538818359375px 'Roboto', sans-serif;
+  --text-style-270: 400 30.366199493408203px/35.58538818359375px 'Roboto', sans-serif;
+  --text-style-271: 400 30.366199493408203px/35.61385726928711px 'Roboto', sans-serif;
+  --text-style-272: 500 30.366199493408203px/35.61385726928711px 'Roboto', sans-serif;
+  --text-style-273: 500 32px/38.400001525878906px 'Roboto', sans-serif;
+  --text-style-274: 400 32.535213470458984px/38.12720489501953px 'Roboto', sans-serif;
+  --text-style-275: 500 32.535213470458984px/38.12720489501953px 'Roboto', sans-serif;
+  --text-style-276: 400 32.84360122680664px/38.48859405517578px 'Roboto', sans-serif;
+  --text-style-277: 400 34.704227447509766px/40.66901779174805px 'Roboto', sans-serif;
+  --text-style-278: 500 34.704227447509766px/40.66901779174805px 'Roboto', sans-serif;
+  --text-style-279: 500 35.03317642211914px/41.05450439453125px 'Roboto', sans-serif;
+  --text-style-280: 400 36.87324142456055px/43.21083068847656px 'Roboto', sans-serif;
+  --text-style-281: 500 39.412322998046875px/46.186317443847656px 'Roboto', sans-serif;
+  --text-style-282: 700 39.412322998046875px/39.412322998046875px 'Roboto', sans-serif;
+  --text-style-283: 400 43.38028335571289px/50.83626937866211px 'Roboto', sans-serif;
+  --text-style-284: 500 56.92891311645508px/66.71356964111328px 'Roboto', sans-serif;
+  --text-style-285: 500 58.46984100341797px/68.51934814453125px 'Roboto', sans-serif;
+  --text-style-286: 300 60.732398986816406px/71.1707763671875px 'Roboto', sans-serif;
+  --text-style-287: 500 66.8692626953125px/78.36241912841797px 'Roboto', sans-serif;
+  --text-style-288: 500 70.06635284423828px/84.07962799072266px 'Roboto', sans-serif;
+  --text-style-289: 400 73.29064178466797px/85.8874740600586px 'Roboto', sans-serif;
+  --text-style-290: 400 73.29064178466797px/85.9561767578125px 'Roboto', sans-serif;
+  --text-style-291: 400 79.2955093383789px/92.92442321777344px 'Roboto', sans-serif;
+  --text-style-292: 400 85.50574493408203px/100.20204162597656px 'Roboto', sans-serif;
+  --text-style-293: 400 85.50574493408203px/100.20204162597656px 'Roboto', sans-serif;
+  --text-style-294: 400 85.50574493408203px/100.2822036743164px 'Roboto', sans-serif;
+  --text-style-295: 500 85.50574493408203px/100.2822036743164px 'Roboto', sans-serif;
+  --text-style-296: 400 91.18536376953125px/106.85784912109375px 'Roboto', sans-serif;
+  --text-style-297: 400 91.61328887939453px/107.35932159423828px 'Roboto', sans-serif;
+  --text-style-298: 500 91.61328887939453px/107.35932159423828px 'Roboto', sans-serif;
+  --text-style-299: 500 91.61329650878906px/107.35932922363281px 'Roboto', sans-serif;
+  --text-style-300: 500 97.2643814086914px/113.98169708251953px 'Roboto', sans-serif;
+  --text-style-301: 400 97.72084045410156px/114.51660919189453px 'Roboto', sans-serif;
+  --text-style-302: 500 97.72084045410156px/114.51660919189453px 'Roboto', sans-serif;
+  --text-style-303: 400 103.82840728759766px/121.67391204833984px 'Roboto', sans-serif;
+  --text-style-304: 500 109.42243957519531px/128.2294158935547px 'Roboto', sans-serif;
+  --text-style-305: 700 109.42243957519531px/109.42243957519531px 'Roboto', sans-serif;
+  --text-style-306: 400 122.15105438232422px/143.14576721191406px 'Roboto', sans-serif;
+  --text-style-307: 500 158.0546112060547px/185.22024536132812px 'Roboto', sans-serif;
+  --text-style-308: 300 171.01148986816406px/200.40408325195312px 'Roboto', sans-serif;
+  --text-style-309: 500 194.5287628173828px/233.4345245361328px 'Roboto', sans-serif;
+  --text-style-310: 500 28px/33.18000030517578px 'Rubik', sans-serif;
+  --text-style-311: 400 22px/28px 'SF Pro', sans-serif;
+  --text-style-312: 500 11px/13.126953125px 'SFCamera', sans-serif;
+  --text-style-313: 500 13px/15.513671875px 'SFCamera', sans-serif;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
+  font-family: var(--font-primary);
+  color: var(--color-neutral-text-primary);
+  background: var(--color-neutral-background);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
 }
 
 body {
   margin: 0;
+  font-family: var(--font-primary);
+  background: var(--color-neutral-background);
+  color: var(--color-neutral-text-primary);
 }
 
 #root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+  height: 100vh;
+}
+
+* {
   box-sizing: border-box;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
+body {
   margin: 0;
+  background: var(--color-neutral-background);
+  color: var(--color-neutral-text-primary);
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+#root {
+  min-height: 100svh;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+/* ─── Leaflet Popup overrides ─────────────────────────────── */
+.leaflet-popup-content-wrapper {
+  border-radius: 10px !important;
+  padding: 0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18) !important;
+  font-family: 'Roboto', sans-serif !important;
+  border: none !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  padding: 12px 14px !important;
+}
+
+/* Ẩn arrow tip cho tất cả popup mặc định */
+.leaflet-popup-tip-container {
+  display: none !important;
+}
+
+/* Hiện arrow tip cho MapZoomPopup — chỉ xuống marker */
+.map-zoom-popup .leaflet-popup-tip-container {
+  display: block !important;
+}
+
+.map-zoom-popup .leaflet-popup-tip {
+  background: #ffffff !important;
+  box-shadow: none !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* z-index cao hơn marker */
+.map-zoom-popup {
+  z-index: 900 !important;
+}
+
+/* ─── Map search input ────────────────────────────────────── */
+.map-search-input::placeholder {
+  color: #9b9aa2;
+}
+
+/* ─── SOS Card hover state ────────────────────────────────── */
+.sos-card:hover:not(.is-selected) {
+  background: #FFF9F5 !important;
+}
+
+/* ─── TeamPopup Leaflet styles ───────────────────────────── */
+.team-popup .leaflet-popup-content-wrapper {
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18) !important;
+  padding: 0 !important;
+}
+.team-popup .leaflet-popup-content {
+  margin: 0 !important;
+  padding: 16px !important;
+}
+/* Ẩn arrow cho team popup */
+.team-popup .leaflet-popup-tip-container {
+  display: none !important;
+}
+
+/* Spinner cho trạng thái "Chờ phản hồi..." */
+@keyframes teamPopupSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
