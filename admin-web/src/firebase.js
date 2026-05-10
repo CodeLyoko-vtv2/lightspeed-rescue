@@ -16,7 +16,11 @@ export const firestore = getFirestore(app);    // Firestore — dùng cho SOS re
 export const storage  = getStorage(app);       // Storage — dùng cho ảnh/ghi âm
 
 // Kết nối Emulator khi chạy local (tránh ảnh hưởng data production)
-if (import.meta.env.DEV && !window.__EMULATOR_CONNECTED__) {
+if (
+  import.meta.env.DEV &&
+  import.meta.env.VITE_USE_EMULATOR === 'true' &&
+  !window.__EMULATOR_CONNECTED__
+) {
   window.__EMULATOR_CONNECTED__ = true;
   connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
   connectFirestoreEmulator(firestore, 'localhost', 8080);
