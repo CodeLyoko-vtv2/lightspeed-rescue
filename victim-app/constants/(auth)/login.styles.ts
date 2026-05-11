@@ -44,7 +44,6 @@ export const styles = StyleSheet.create({
   inputSection: {
     width: "100%",
     marginBottom: 20,
-    paddingHorizontal: 20,
   },
   inputLabel: {
     fontSize: 22,

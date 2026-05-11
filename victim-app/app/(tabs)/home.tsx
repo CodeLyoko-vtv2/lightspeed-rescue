@@ -1,8 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
-import { useFocusEffect } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import {
   Alert,
   Image,
@@ -12,13 +12,13 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Animated,
+  Easing,
+  Dimensions,
+  Modal,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as ImageManipulator from 'expo-image-manipulator';
-
-// ✅ FIX LỖI ĐỎ: Import bản legacy theo đúng gợi ý của thư viện Expo mới
-import * as FileSystem from 'expo-file-system/legacy'; 
-
+import * as Notifications from "expo-notifications";
 import {
   addDoc,
   collection,
@@ -28,14 +28,29 @@ import {
   serverTimestamp,
   updateDoc,
   where,
+  onSnapshot,
 } from "firebase/firestore";
 import { styles } from "../../constants/(tabs)/home.styles";
 import { COLORS } from "../../constants/colors";
 import { db } from "../../firebaseConfig";
 
-// Modal components
+// Components
 import { CountdownModal } from "../../components/CountdownModal";
 import { IncidentFormModal } from "../../components/IncidentFormModal";
+import { ExpandableNotification } from "../../components/ExpandableNotification";
+import { simulateAdminDispatch } from "../../utils/adminSimulator";
+
+const { height } = Dimensions.get("window");
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 const INCIDENTS = [
   { id: "NUCLEAR", name: "Hạt nhân", icon: "radioactive", bgColor: "#E8F5E9", iconColor: "#000" },
@@ -48,6 +63,8 @@ const INCIDENTS = [
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  
   const [userData, setUserData] = useState({ uid: "", fullName: "Đang tải...", phoneNumber: "" });
   const [address, setAddress] = useState("Đang xác định vị trí...");
   const [loading, setLoading] = useState(false);
@@ -55,11 +72,122 @@ export default function HomeScreen() {
   const [isSOSActive, setIsSOSActive] = useState(false);
   const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
+  const [isRescueAccepted, setIsRescueAccepted] = useState(false);
 
+  const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
+
+  const [notifications, setNotifications] = useState([
+    { id: "2", title: "Thay đổi mật khẩu thành công!", content: ["Bạn đã thay đổi mật khẩu thành công hãy..."], isImportant: false },
+    { id: "3", title: "Thông báo hệ thống", content: ["App cứu hộ vừa cập nhật tính năng mới."], isImportant: false },
+  ]);
+
+  const [isNotiVisible, setIsNotiVisible] = useState(false);
+  const dropAnim = useRef(new Animated.Value(-height)).current;
+  const HEADER_HEIGHT = 80 + insets.top;
+
+  const toggleNotifications = () => {
+    const toValue = isNotiVisible ? -height : HEADER_HEIGHT;
+    setIsNotiVisible(!isNotiVisible);
+    Animated.timing(dropAnim, {
+      toValue,
+      duration: 500,
+      easing: Easing.out(Easing.poly(4)),
+      useNativeDriver: false,
+    }).start();
+  };
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== "granted") console.log("Chưa cấp quyền thông báo");
+    })();
+  }, []);
+
+  // 1. LẮNG NGHE LỆNH ĐIỀU ĐỘNG TỪ TRUNG TÂM
+  useEffect(() => {
+    if (!isSOSActive || !currentRequestId) {
+      setNotifications((prev) => prev.filter((n) => n.id !== "RESCUE_ACTIVE"));
+      return;
+    }
+
+    const q = query(collection(db, "Dispatches"), where("requestId", "==", currentRequestId));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach(async (change) => {
+        if (change.type === "added" || change.type === "modified") {
+          const dispatchData = change.doc.data();
+
+          if (dispatchData.status === "ACCEPTED" && !isRescueAccepted) {
+            setIsRescueAccepted(true);
+
+            setNotifications((prev) => {
+              if (prev.find((n) => n.id === "RESCUE_ACTIVE")) return prev;
+              return [
+                {
+                  id: "RESCUE_ACTIVE",
+                  title: "Đội cứu hộ đang tiến về phía bạn!",
+                  content: ["• Ở yên tại vị trí an toàn.", "• Di chuyển theo chỉ dẫn trên bản đồ."],
+                  isImportant: true,
+                },
+                ...prev,
+              ];
+            });
+
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: "Đội cứu hộ đang đến! 🚑",
+                body: "Yêu cầu của bạn đã được tiếp nhận. Hãy giữ bình tĩnh.",
+                sound: true,
+                data: { requestId: currentRequestId }, // ✅ ĐÃ CÓ MÃ GÓI KÈM
+              },
+              trigger: null,
+            });
+          }
+        }
+      });
+    });
+    return () => unsubscribe();
+  }, [isSOSActive, currentRequestId, isRescueAccepted]);
+
+  // 2. ✅ RULE 10S: CẬP NHẬT TỌA ĐỘ NẠN NHÂN LÊN FIREBASE (CHẠY NGẦM)
+  useEffect(() => {
+    let locationInterval: ReturnType<typeof setInterval>;
+
+    if (isSOSActive && userData?.uid) {
+      const updateLocationToFirebase = async () => {
+        try {
+          let loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced, 
+          });
+
+          await updateDoc(doc(db, "Users", userData.uid), {
+            currentLocation: {
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            },
+            lastLocationUpdate: serverTimestamp(),
+          });
+          
+          console.log(`[Hệ thống] Đã đồng bộ tọa độ (Rule 10s) cho Victim: ${userData.fullName}`);
+        } catch (error) {
+          console.error("Lỗi đồng bộ tọa độ định kỳ:", error);
+        }
+      };
+
+      updateLocationToFirebase();
+      locationInterval = setInterval(updateLocationToFirebase, 10000);
+    }
+
+    return () => {
+      if (locationInterval) {
+        clearInterval(locationInterval);
+      }
+    };
+  }, [isSOSActive, userData.uid]);
+
+  // 3. LOGIC ĐẾM NGƯỢC AI
   const [isCountdownVisible, setIsCountdownVisible] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(5);
   const [aiDetectedName, setAiDetectedName] = useState("");
-
   const [isIncidentModalVisible, setIsIncidentModalVisible] = useState(false);
   const [tempIncident, setTempIncident] = useState<any>(null);
   const [description, setDescription] = useState("");
@@ -95,9 +223,8 @@ export default function HomeScreen() {
     if (phone) {
       const q = query(collection(db, "Users"), where("phoneNumber", "==", phone));
       const snap = await getDocs(q);
-      if (!snap.empty) {
+      if (!snap.empty)
         setUserData({ uid: snap.docs[0].id, fullName: snap.docs[0].data().fullName, phoneNumber: phone });
-      }
     }
   };
 
@@ -110,123 +237,80 @@ export default function HomeScreen() {
   };
 
   const handleStartSOS = async () => {
-    setIsCountdownVisible(false);
-    setIsSOSActive(true); 
-    
+    setIsCountdownVisible(false); setIsSOSActive(true); setIsRescueAccepted(false);
     try {
       setLoading(true);
       let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      
       const docRef = await addDoc(collection(db, "SOS_Requests"), {
-        victimId: userData.uid,
-        victimName: userData.fullName,
-        victimPhone: userData.phoneNumber,
-        incidentType: "UNCATEGORIZED",
-        description: "",
+        victimId: userData.uid, victimName: userData.fullName, victimPhone: userData.phoneNumber,
+        incidentType: "UNCATEGORIZED", description: "",
         location: { latitude: loc.coords.latitude, longitude: loc.coords.longitude },
-        mediaImages: [], 
-        audioRecordings: [], 
-        priorityScore: 0, 
-        status: "ACTIVE",
-        createdAt: serverTimestamp(),
+        mediaImages: [], audioRecordings: [], priorityScore: 0, status: "ACTIVE", createdAt: serverTimestamp(),
       });
-      
       setCurrentRequestId(docRef.id);
-    } catch (e) {
-      console.error(e);
-      Alert.alert("Lỗi hệ thống", "Không thể thiết lập kết nối khẩn cấp.");
-    } finally {
-      setLoading(false);
-    }
+      setTimeout(() => simulateAdminDispatch(docRef.id), 10000);
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  const convertImageToBase64 = async (uri: string) => {
-    try {
-      const manipulatedImage = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 600 } }],
-        { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-      );
-      return `data:image/jpeg;base64,${manipulatedImage.base64}`;
-    } catch (error) {
-      return null;
-    }
-  };
-
-  const convertAudioToBase64 = async (uri: string) => {
-    try {
-      // ✅ Giờ thì hàm này sẽ đọc file mượt mà không bị báo đỏ nữa
-      const base64Str = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      return `data:audio/mp4;base64,${base64Str}`;
-    } catch (error) {
-      console.error("Lỗi chuyển đổi Audio:", error);
-      return null;
-    }
+  const handleCancelSOS = () => {
+    Alert.alert("Xác nhận", "Bạn muốn tắt tín hiệu khẩn cấp?", [
+      { text: "Không", style: "cancel" },
+      { text: "Đồng ý", style: "destructive", onPress: async () => {
+          if (currentRequestId) await updateDoc(doc(db, "SOS_Requests", currentRequestId), { status: "CANCELLED" });
+          setIsSOSActive(false); setCurrentRequestId(null); setSelectedIncident(null); setIsRescueAccepted(false);
+      }},
+    ]);
   };
 
   const handleSubmitInfo = async (images: string[] = [], audioUri: string | null = null) => {
     if (!currentRequestId || !tempIncident) return;
     try {
       setLoading(true);
-      
-      let base64Images: string[] = [];
-      if (images.length > 0) {
-        const results = await Promise.all(images.map(imgUri => convertImageToBase64(imgUri)));
-        base64Images = results.filter(item => item !== null) as string[];
-      }
-
-      let base64Audio: string[] = [];
-      if (audioUri) {
-        const audioData = await convertAudioToBase64(audioUri);
-        if (audioData) base64Audio.push(audioData);
-      }
-
       await updateDoc(doc(db, "SOS_Requests", currentRequestId), {
         incidentType: tempIncident.id,
-        description: description,
-        mediaImages: base64Images, 
-        audioRecordings: base64Audio, 
+        description,
       });
-
       setSelectedIncident(tempIncident.id);
-      setIsIncidentModalVisible(false);
-      setDescription("");
-      Alert.alert("Thành công", "Đã truyền dữ liệu hiện trường về Trung tâm cứu hộ.");
+      setIsIncidentModalVisible(false); 
+      
+      setTimeout(() => {
+        setIsSuccessModalVisible(true);
+      }, 300);
+
     } catch (e) {
       console.error(e);
-      Alert.alert("Lỗi", "Dữ liệu quá lớn, vui lòng kiểm tra lại kết nối.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCancelSOS = () => {
-    Alert.alert("Xác nhận", "Bạn muốn tắt tín hiệu khẩn cấp?", [
-      { text: "Không", style: "cancel" },
-      {
-        text: "Đồng ý",
-        style: "destructive",
-        onPress: async () => {
-          if (currentRequestId) {
-            await updateDoc(doc(db, "SOS_Requests", currentRequestId), { status: "CANCELLED" });
-            setCurrentRequestId(null);
-          }
-          setIsSOSActive(false);
-          setSelectedIncident(null);
-        },
-      },
-    ]);
-  };
+  // 4. ✅ TỰ ĐỘNG TẮT VÒNG LẶP ĐỊNH VỊ Ở HOME KHI ĐÃ GẶP NHAU (RESOLVED)
+  useEffect(() => {
+    if (!currentRequestId) return;
+    
+    const unsub = onSnapshot(doc(db, "SOS_Requests", currentRequestId), (docSnap) => {
+      if (docSnap.exists() && docSnap.data().status === "RESOLVED") {
+        setIsSOSActive(false); // Ngắt SOS -> tự động hủy rule 10s
+        setCurrentRequestId(null);
+        setSelectedIncident(null);
+        setIsRescueAccepted(false);
+      }
+    });
+    
+    return () => unsub();
+  }, [currentRequestId]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={{ flex: 1, backgroundColor: "#FFF" }}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
-      <View style={styles.header}>
+
+      {/* HEADER CỐ ĐỊNH */}
+      <View style={[styles.header, { paddingTop: insets.top, zIndex: 1001, backgroundColor: "#FFF" }]}>
         <TouchableOpacity style={styles.userInfo} activeOpacity={0.7}>
-          <View style={styles.avatarWrapper}>
+          <TouchableOpacity style={styles.avatarWrapper} onPress={() => router.push("/edit-profile")}>
             <Image source={require("../../assets/images/avatar.png")} style={styles.avatar} />
-          </View>
-          <View style={styles.userTextContainer}>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.userTextContainer} onPress={() => router.push("/(tabs)/map")}>
             <Text numberOfLines={1}>
               <Text style={styles.userName}>{userData.fullName} </Text>
               <Text style={styles.userPhone}>{userData.phoneNumber}</Text>
@@ -235,18 +319,31 @@ export default function HomeScreen() {
               <Ionicons name="location" size={18} color={COLORS.primary} />
               <Text style={styles.locationText} numberOfLines={1}>{address}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
           <Ionicons name="chevron-forward" size={28} color={COLORS.textNormal} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton}>
+
+        <TouchableOpacity style={styles.iconButton} onPress={toggleNotifications}>
           <View>
-            <MaterialCommunityIcons name="bell" size={32} color="#2D3142" />
-            <View style={styles.notificationDot} />
+            <MaterialCommunityIcons name={isNotiVisible ? "bell-off" : "bell"} size={32} color={isNotiVisible ? COLORS.primary : "#2D3142"} />
+            {isRescueAccepted && <View style={styles.notificationDot} />}
           </View>
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}>
+      {/* KHAY THÔNG BÁO ANIMATION */}
+      <Animated.View style={{ position: "absolute", top: dropAnim, left: 0, right: 0, height: height, backgroundColor: "#F8F9FB", zIndex: 1000, paddingTop: 10 }}>
+        <ScrollView contentContainerStyle={{ padding: 15, paddingBottom: 150 }}>
+          <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 15, color: "#2D3142", marginLeft: 5 }}>Thông báo của bạn</Text>
+          {notifications.map((noti) => (
+            <ExpandableNotification key={noti.id} title={noti.title} content={noti.content} isImportant={noti.isImportant} requestId={currentRequestId} onClose={toggleNotifications} />
+          ))}
+          {notifications.length === 0 && <Text style={{ textAlign: "center", marginTop: 50, color: "#999" }}>Trống</Text>}
+        </ScrollView>
+      </Animated.View>
+
+      {/* TRANG HOME CHÍNH */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 10, paddingBottom: insets.bottom + 120 }}>
         {!isSOSActive ? (
           <View>
             <View style={styles.instructionCard}>
@@ -276,10 +373,7 @@ export default function HomeScreen() {
                   <TouchableOpacity
                     key={item.id}
                     style={[styles.incidentPill, selectedIncident === item.id && styles.incidentPillSelected]}
-                    onPress={() => {
-                      setTempIncident(item);
-                      setIsIncidentModalVisible(true);
-                    }}
+                    onPress={() => { setTempIncident(item); setIsIncidentModalVisible(true); }}
                   >
                     <View style={[styles.iconCircle, { backgroundColor: selectedIncident === item.id ? COLORS.primary : item.bgColor }]}>
                       <MaterialCommunityIcons name={item.icon as any} size={20} color={selectedIncident === item.id ? "#FFF" : item.iconColor} />
@@ -293,26 +387,44 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      <CountdownModal
-        visible={isCountdownVisible}
-        onClose={() => setIsCountdownVisible(false)}
-        onSend={handleStartSOS}
-        seconds={secondsLeft}
-        incidentName={aiDetectedName}
-      />
+      {/* CÁC MODAL */}
+      <CountdownModal visible={isCountdownVisible} onClose={() => setIsCountdownVisible(false)} onSend={handleStartSOS} seconds={secondsLeft} incidentName={aiDetectedName} />
       
-      <IncidentFormModal
-        visible={isIncidentModalVisible}
-        onClose={() => setIsIncidentModalVisible(false)}
-        onSubmit={handleSubmitInfo}
-        incident={tempIncident}
-        userData={userData}
-        address={address}
-        description={description}
-        setDescription={setDescription}
-        loading={loading}
-        onReopen={() => setIsIncidentModalVisible(true)}
+      <IncidentFormModal 
+        visible={isIncidentModalVisible} 
+        onClose={() => setIsIncidentModalVisible(false)} 
+        onSubmit={handleSubmitInfo} 
+        incident={tempIncident} 
+        userData={userData} 
+        address={address} 
+        description={description} 
+        setDescription={setDescription} 
+        loading={loading} 
+        onReopen={() => setIsIncidentModalVisible(true)} 
       />
+
+      <Modal visible={isSuccessModalVisible} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#FFF', width: '100%', borderRadius: 20, padding: 30, alignItems: 'center' }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#FFF5F0', justifyContent: 'center', alignItems: 'center', marginBottom: 20 }}>
+              <Ionicons name="flash" size={34} color={COLORS.primary} />
+            </View>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#2D3142', textAlign: 'center' }}>
+              Đã gửi thông tin thành công!
+            </Text>
+            <Text style={{ fontSize: 14, color: '#555', textAlign: 'center', marginTop: 12, lineHeight: 22 }}>
+              Nếu có diễn biến mới, vui lòng tiếp tục cập nhật để đội cứu hộ hỗ trợ bạn nhanh nhất.
+            </Text>
+            <TouchableOpacity 
+              style={{ backgroundColor: COLORS.primary, width: '100%', paddingVertical: 16, borderRadius: 15, marginTop: 30, alignItems: 'center' }}
+              onPress={() => setIsSuccessModalVisible(false)}
+            >
+              <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold' }}>Về trang chủ</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }

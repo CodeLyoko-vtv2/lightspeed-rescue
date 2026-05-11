@@ -12,9 +12,9 @@ export const styles = StyleSheet.create({
     backgroundColor: "#dddddd66"
 
   },
-  headerTitle: { fontSize: 20, fontWeight: "800", color: "#2D3142" },
+  headerTitle: { fontSize: 24, fontWeight: "800", color: "#2D3142" },
   addButton: { flexDirection: "row", alignItems: "center" },
-  addButtonText: { fontSize: 16, fontWeight: "600", color: COLORS.primary, marginLeft: 4 },
+  addButtonText: { fontSize: 18, fontWeight: "600", color: COLORS.primary, marginLeft: 4 },
 
   searchContainer: {
     flexDirection: "row",
@@ -35,7 +35,7 @@ export const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 2,
   },
-  searchInput: { flex: 1, fontSize: 16, color: "#333" },
+  searchInput: { flex: 1, fontSize: 18, color: "#333" },
 
   listContent: { paddingHorizontal: 20, paddingBottom: 100 },
   groupCard: {
@@ -56,6 +56,6 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  groupName: { fontSize: 20, fontWeight: "500", color: COLORS.textNormal, marginLeft: 15 },
-  contactCount: { fontSize: 14, color: COLORS.textMuted, fontWeight: "500" },
+  groupName: { fontSize: 21, fontWeight: "700", color: COLORS.textNormal, marginLeft: 15 },
+  contactCount: { fontSize: 15, color: COLORS.textMuted, fontWeight: "500" },
 });

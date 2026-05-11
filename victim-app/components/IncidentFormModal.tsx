@@ -1,27 +1,26 @@
-import React, { useState, useEffect } from "react";
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  Keyboard,
-  TouchableWithoutFeedback,
-  Dimensions,
-  StyleSheet,
-  Alert,
-} from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../constants/(tabs)/home.styles";
 import { COLORS } from "../constants/colors";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { eventEmitter } from "../untils/eventEmitter"; // Lưu ý đường dẫn của sếp là untils
-import * as ImagePicker from "expo-image-picker";
+import { eventEmitter } from "../utils/eventEmitter"; 
 import { AudioRecordModal } from "./AudioRecordModal";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -30,7 +29,6 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   onReopen: () => void;
-  // ✅ CẬP NHẬT: Cho phép truyền cả mảng ảnh và file âm thanh
   onSubmit: (images: string[], audioUri: string | null) => void;
   incident: any;
   userData: any;
@@ -61,6 +59,9 @@ export const IncidentFormModal = ({
   const [isAudioModalVisible, setIsAudioModalVisible] = useState(false);
   const [audioUri, setAudioUri] = useState<string | null>(null);
 
+  const [usedCamera, setUsedCamera] = useState(false);
+  const [usedGallery, setUsedGallery] = useState(false);
+
   useEffect(() => {
     const subscription = eventEmitter.addListener(
       "imageSelected",
@@ -69,6 +70,7 @@ export const IncidentFormModal = ({
           if (prev.length < 3) return [...prev, photoUri];
           return prev;
         });
+        setUsedCamera(true); 
         onReopen();
       },
     );
@@ -102,8 +104,7 @@ export const IncidentFormModal = ({
     }
 
     try {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
         Alert.alert(
           "Cấp quyền",
@@ -125,6 +126,7 @@ export const IncidentFormModal = ({
           const combined = [...prev, ...newUris];
           return combined.slice(0, 3);
         });
+        setUsedGallery(true); 
       }
     } catch (error) {
       console.error("Lỗi khi mở bộ sưu tập:", error);
@@ -132,7 +134,14 @@ export const IncidentFormModal = ({
   };
 
   const removeImage = (index: number) => {
-    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+    setSelectedImages((prev) => {
+      const newImages = prev.filter((_, i) => i !== index);
+      if (newImages.length === 0) {
+        setUsedCamera(false);
+        setUsedGallery(false);
+      }
+      return newImages;
+    });
   };
 
   return (
@@ -180,7 +189,7 @@ export const IncidentFormModal = ({
               <View style={styles.infoCard}>
                 <View style={styles.infoRow}>
                   <Image
-                    source={require("../assets/images/avatar.png")}
+                    source={require("../assets/images/avatar.png")} // ✅ Đã trả lại đường dẫn chuẩn của sếp
                     style={styles.smallAvatar}
                   />
                   <View style={styles.infoTextColumn}>
@@ -206,9 +215,7 @@ export const IncidentFormModal = ({
               </View>
 
               {selectedImages.length > 0 && (
-                <View
-                  style={{ flexDirection: "row", marginBottom: 15, gap: 10 }}
-                >
+                <View style={{ flexDirection: "row", marginBottom: 15, gap: 10 }}>
                   {selectedImages.map((uri, index) => (
                     <View key={index} style={styles.formThumbnailWrapper}>
                       <Image source={{ uri }} style={styles.formThumbnail} />
@@ -216,11 +223,7 @@ export const IncidentFormModal = ({
                         style={styles.removeImageBtn}
                         onPress={() => removeImage(index)}
                       >
-                        <Ionicons
-                          name="close-circle"
-                          size={24}
-                          color="#FF6347"
-                        />
+                        <Ionicons name="close-circle" size={24} color="#FF6347" />
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -238,78 +241,73 @@ export const IncidentFormModal = ({
               />
 
               <View style={styles.mediaActionRow}>
+                
                 <TouchableOpacity
-                  style={styles.mediaTile}
+                  style={[
+                    styles.mediaTile,
+                    usedCamera && { borderColor: COLORS.primary, borderWidth: 2 },
+                    { position: "relative" }
+                  ]}
                   onPress={handleOpenCamera}
                 >
-                  <Ionicons name="camera-outline" size={32} color="#555" />
-                  <Text style={styles.mediaText}>Máy ảnh</Text>
+                  {usedCamera && (
+                    <View style={{ position: "absolute", top: -5, right: -5, backgroundColor: "#FFF", borderRadius: 10, zIndex: 10 }}>
+                      <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+                    </View>
+                  )}
+                  <Ionicons name="camera-outline" size={32} color={usedCamera ? COLORS.primary : "#555"} />
+                  <Text style={[styles.mediaText, usedCamera && { color: COLORS.primary }]}>
+                    {usedCamera ? "Đã chụp" : "Máy ảnh"}
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.mediaTile}
+                  style={[
+                    styles.mediaTile,
+                    usedGallery && { borderColor: COLORS.primary, borderWidth: 2 },
+                    { position: "relative" }
+                  ]}
                   onPress={handleOpenGallery}
                 >
-                  <Ionicons name="images-outline" size={32} color="#555" />
-                  <Text style={styles.mediaText}>Bộ sưu tập</Text>
+                  {usedGallery && (
+                    <View style={{ position: "absolute", top: -5, right: -5, backgroundColor: "#FFF", borderRadius: 10, zIndex: 10 }}>
+                      <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+                    </View>
+                  )}
+                  <Ionicons name="images-outline" size={32} color={usedGallery ? COLORS.primary : "#555"} />
+                  <Text style={[styles.mediaText, usedGallery && { color: COLORS.primary }]}>
+                    {usedGallery ? "Đã chọn" : "Bộ sưu tập"}
+                  </Text>
                 </TouchableOpacity>
 
-                {/* ✅ NÚT GHI ÂM CHUẨN UI MỚI */}
                 <TouchableOpacity
                   style={[
                     styles.mediaTile,
                     audioUri && { borderColor: COLORS.primary, borderWidth: 2 },
-                    { position: "relative" }, // Để gắn cái checkmark lên góc
+                    { position: "relative" }, 
                   ]}
                   onPress={() => {
                     Keyboard.dismiss();
                     setIsAudioModalVisible(true);
                   }}
                 >
-                  {/* ✅ FIX LỖI 4: DẤU CHECK CAM Ở GÓC */}
                   {audioUri && (
-                    <View
-                      style={{
-                        position: "absolute",
-                        top: -5,
-                        right: -5,
-                        backgroundColor: "#FFF",
-                        borderRadius: 10,
-                        zIndex: 10,
-                      }}
-                    >
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={20}
-                        color={COLORS.primary}
-                      />
+                    <View style={{ position: "absolute", top: -5, right: -5, backgroundColor: "#FFF", borderRadius: 10, zIndex: 10 }}>
+                      <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
                     </View>
                   )}
-
-                  <Ionicons
-                    name="mic-outline"
-                    size={32}
-                    color={audioUri ? COLORS.primary : "#555"}
-                  />
-                  <Text
-                    style={[
-                      styles.mediaText,
-                      audioUri && { color: COLORS.primary },
-                    ]}
-                  >
+                  <Ionicons name="mic-outline" size={32} color={audioUri ? COLORS.primary : "#555"} />
+                  <Text style={[styles.mediaText, audioUri && { color: COLORS.primary }]}>
                     {audioUri ? "Đã ghi âm" : "Ghi âm"}
                   </Text>
                 </TouchableOpacity>
 
-                {/* ✅ GỌI MODAL: TRUYỀN DỮ LIỆU ĐI VÀ VỀ */}
                 <AudioRecordModal
                   visible={isAudioModalVisible}
                   onClose={() => setIsAudioModalVisible(false)}
-                  existingAudioUri={audioUri} // Truyền file cũ vào cho nó biết
-                  onDelete={() => setAudioUri(null)} // Nó gọi xóa thì mình xóa
-                  onSave={(uri) => {
-                    setAudioUri(uri);
-                  }}
+                  existingAudioUri={audioUri} 
+                  onDelete={() => setAudioUri(null)} 
+                  onSave={(uri) => { setAudioUri(uri); }}
                 />
               </View>
 
@@ -317,10 +315,12 @@ export const IncidentFormModal = ({
                 style={styles.sendNowButton}
                 onPress={() => {
                   Keyboard.dismiss();
-                  // ✅ CẬP NHẬT: Gửi cả mảng ảnh và file âm thanh ra ngoài
                   onSubmit(selectedImages, audioUri);
+                  
                   setSelectedImages([]);
-                  setAudioUri(null); // Gửi xong thì reset luôn
+                  setAudioUri(null); 
+                  setUsedCamera(false);
+                  setUsedGallery(false);
                 }}
                 disabled={loading}
               >

@@ -21,7 +21,7 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 10,
   },
-  searchInput: { flex: 1, marginLeft: 10, fontSize: 16 },
+  searchInput: { flex: 1, marginLeft: 10, fontSize: 17 },
   searchAvatar: { width: 32, height: 32, borderRadius: 16 },
 
   // Chips

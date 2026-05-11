@@ -23,7 +23,7 @@ export const styles = StyleSheet.create({
     shadowRadius: 5,
   },
   backBtn: { marginRight: 10 },
-  headerSearchText: { flex: 1, fontSize: 16, color: "#333" },
+  headerSearchText: { flex: 1, fontSize: 19, color: "#333" },
 
   myLocationBtn: {
     position: "absolute",
@@ -58,7 +58,7 @@ export const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginTop: 10,
   },
-  placeName: { fontSize: 22, fontWeight: "600", color: "#333", flex: 1 },
+  placeName: { fontSize: 23, fontWeight: "600", color: "#333", flex: 1 },
   shareBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
 
   actionRow: { paddingLeft: 20, marginVertical: 20 },
@@ -98,9 +98,9 @@ export const styles = StyleSheet.create({
 
   infoSection: { padding: 20, gap: 20 },
   infoRow: { flexDirection: "row", alignItems: "center", gap: 15 },
-  infoText: { fontSize: 15, color: "#333", flex: 1 },
-  statusText: { fontSize: 15, color: "#FF9800", fontWeight: "600" },
-  subInfoText: { fontSize: 13, color: "#777" },
+  infoText: { fontSize: 16, color: "#333", flex: 1 },
+  statusText: { fontSize: 16, color: "#FF9800", fontWeight: "600" },
+  subInfoText: { fontSize: 14, color: "#777" },
 
   // Marker chấm cam
   orangeDotOuter: {

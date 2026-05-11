@@ -16,7 +16,7 @@ export const styles = StyleSheet.create({
     zIndex: 10,
   },
   instructionMain: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  instructionText: { color: "#FFF", fontSize: 22, fontWeight: "700", flex: 1, marginLeft: 15 },
+  instructionText: { color: "#FFF", fontSize: 28, fontWeight: "700", flex: 1, marginLeft: 15 },
   micBtn: { backgroundColor: "#FFF", width: 40, height: 40, borderRadius: 20, justifyContent: "center", alignItems: "center" },
   nextStep: { backgroundColor: "#064436", alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8, marginTop: 10, flexDirection: "row", alignItems: "center" },
   nextStepText: { color: "#FFF", marginRight: 8, fontWeight: "600" },
@@ -29,8 +29,8 @@ export const styles = StyleSheet.create({
 
   // Đồng hồ tốc độ
   speedWrapper: { position: "absolute", bottom: 120, left: 20, width: 70, height: 70, borderRadius: 35, backgroundColor: "#FFF", justifyContent: "center", alignItems: "center", elevation: 5, shadowOpacity: 0.1 },
-  speedValue: { fontSize: 24, fontWeight: "bold", color: "#333" },
-  speedUnit: { fontSize: 10, color: "#777" },
+  speedValue: { fontSize: 28, fontWeight: "bold", color: "#333" },
+  speedUnit: { fontSize: 15, color: "#777" },
 
   // Nút bên phải
   sideControls: { position: "absolute", right: 20, top: "60%", gap: 15 },
@@ -41,7 +41,7 @@ export const styles = StyleSheet.create({
   closeBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#F5F5F5", justifyContent: "center", alignItems: "center" },
   statsContainer: { alignItems: "center" },
   timeValue: { fontSize: 28, fontWeight: "bold", color: "#0A5D4A" },
-  distValue: { fontSize: 16, color: "#777", fontWeight: "500" },
+  distValue: { fontSize: 24, color: "#777", fontWeight: "500" },
   recenterBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#F5F5F5", justifyContent: "center", alignItems: "center" },
   
   navigationArrow: { transform: [{ rotate: '-45deg' }] }
