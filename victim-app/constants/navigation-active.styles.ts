@@ -44,5 +44,19 @@ export const styles = StyleSheet.create({
   distValue: { fontSize: 24, color: "#777", fontWeight: "500" },
   recenterBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#F5F5F5", justifyContent: "center", alignItems: "center" },
   
-  navigationArrow: { transform: [{ rotate: '-45deg' }] }
+  navigationArrow: { transform: [{ rotate: '-45deg' }] },
+carMarkerWrapper: {
+    backgroundColor: "#FFF",
+    padding: 6,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    // Đổ bóng cho marker nổi bật trên bản đồ
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  }
+
 });

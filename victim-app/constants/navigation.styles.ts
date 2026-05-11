@@ -42,4 +42,18 @@ export const styles = StyleSheet.create({
   startBtnText: { color: "#FFF", fontSize: 19, fontWeight: "bold", marginLeft: 8 },
   stepsBtn: { flex: 1, backgroundColor: "#E3F2FD", flexDirection: "row", height: 50, borderRadius: 25, justifyContent: "center", alignItems: "center" },
   stepsBtnText: { color: COLORS.primary, fontSize: 19, fontWeight: "bold", marginLeft: 8 },
+
+  carMarkerWrapper: {
+    backgroundColor: "#FFF",
+    padding: 6,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    // Đổ bóng cho marker nổi bật trên bản đồ
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  }
 });
