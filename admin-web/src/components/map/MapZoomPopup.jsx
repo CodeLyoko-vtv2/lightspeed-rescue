@@ -44,6 +44,8 @@ export function MapZoomPopup({ sos, position, onClose, onDispatch }) {
   const address = getSosAddress(sos);
   const description = sos.description || '';
   const incident = INCIDENT_META[sos.incidentType] || { label: 'Khác', color: '#6B7280', icon: null };
+  const badgeBg = blendWithWhite(incident.color, 0.18);
+  const badgeTextColor = '#2b2b2b';
 
   return (
     <>
@@ -60,20 +62,31 @@ export function MapZoomPopup({ sos, position, onClose, onDispatch }) {
           autoPan={false}
           offset={[0, -65]}
         >
-          <div style={wrapStyle}>
+          <div className="map-zoom-popup__wrap">
             {/* Dòng 1: Tên cam + Badge */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '15px', fontWeight: 700, color: '#FF8852' }}>
+            <div className="map-zoom-popup__header">
+              <span className="map-zoom-popup__name">
                 {sos.victimName || 'Nạn nhân'}
               </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#FFD6D6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="#000000">
-                    <path d="M12 2C12 2 16 6 16 11C16 15.4183 14.2091 19 12 19C9.79086 19 8 15.4183 8 11C8 6 12 2 12 2Z" />
-                    <path d="M12 11C12 11 14 13 14 15C14 16.6569 13.1046 18 12 18C10.8954 18 10 16.6569 10 15C10 13 12 11 12 11Z" fill="#FFD6D6" />
-                  </svg>
+              <div
+                className="map-zoom-popup__badge"
+                style={{ background: badgeBg }}
+              >
+                <div className="map-zoom-popup__badge-icon" style={{ background: badgeBg }}>
+                  {incident.icon ? (
+                    <img
+                      className="map-zoom-popup__badge-image"
+                      src={incident.icon}
+                      alt=""
+                    />
+                  ) : (
+                    <svg className="map-zoom-popup__badge-svg" viewBox="0 0 24 24" fill="#2b2b2b">
+                      <path d="M12 2C12 2 16 6 16 11C16 15.4183 14.2091 19 12 19C9.79086 19 8 15.4183 8 11C8 6 12 2 12 2Z" />
+                      <path d="M12 11C12 11 14 13 14 15C14 16.6569 13.1046 18 12 18C10.8954 18 10 16.6569 10 15C10 13 12 11 12 11Z" />
+                    </svg>
+                  )}
                 </div>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#000000' }}>
+                <span className="map-zoom-popup__badge-text" style={{ color: badgeTextColor }}>
                   {incident.label}
                 </span>
               </div>
@@ -81,43 +94,43 @@ export function MapZoomPopup({ sos, position, onClose, onDispatch }) {
 
             {/* Dòng 2: Số điện thoại */}
             {phone
-              ? <div style={{ fontSize: '13px', fontWeight: 700, color: '#000000', marginTop: '10px' }}>{phone}</div>
+              ? <div className="map-zoom-popup__phone">{phone}</div>
               : null}
 
             {/* Dòng 3: Địa chỉ */}
-            <div style={{ fontSize: '14px', color: '#000000', marginTop: '10px', lineHeight: 1.4 }}>
+            <div className="map-zoom-popup__address">
               {address}
             </div>
 
             {/* Dòng 4: Mô tả */}
             {description
-              ? <div style={{ fontSize: '14px', color: '#555555', marginTop: '10px' }}>{description}</div>
+              ? <div className="map-zoom-popup__desc">{description}</div>
               : null}
 
             {/* Dòng 5: Icon buttons */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '30px', marginTop: '20px' }}>
+            <div className="map-zoom-popup__actions">
               <button
                 type="button"
-                style={iconBtnStyle}
+                className="map-zoom-popup__action-btn"
                 onClick={(e) => { e.stopPropagation(); setShowVoiceModal(true); }}
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <svg className="map-zoom-popup__action-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <path d="M12 2C10.8954 2 10 2.89543 10 4V11C10 12.1046 10.8954 13 12 13C13.1046 13 14 12.1046 14 11V4C14 2.89543 13.1046 2 12 2Z" stroke="#FF8852" strokeWidth="1.5" strokeLinecap="round"/>
                   <path d="M17 11C17 13.7614 14.7614 16 12 16C9.23858 16 7 13.7614 7 11" stroke="#FF8852" strokeWidth="1.5" strokeLinecap="round"/>
                   <circle cx="16" cy="18" r="3" stroke="#FF8852" strokeWidth="1.5"/>
                   <circle cx="16" cy="18" r="1" fill="#FF8852"/>
                 </svg>
-                <span>Ghi âm</span>
+                <span className="map-zoom-popup__action-text">Ghi âm</span>
               </button>
-              <button type="button" style={iconBtnStyle}
+              <button type="button" className="map-zoom-popup__action-btn"
                 onClick={(e) => { e.stopPropagation(); setShowGalleryModal(true); }}
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <svg className="map-zoom-popup__action-icon" width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <rect x="3" y="4" width="18" height="16" rx="2" stroke="#FF8852" strokeWidth="1.5"/>
                   <circle cx="8.5" cy="8.5" r="1.5" stroke="#FF8852" strokeWidth="1.5"/>
                   <path d="M21 15L16.5 10.5C15.6716 9.67157 14.3284 9.67157 13.5 10.5L3 21" stroke="#FF8852" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                <span>Bộ sưu tập</span>
+                <span className="map-zoom-popup__action-text">Bộ sưu tập</span>
               </button>
             </div>
 
@@ -125,7 +138,7 @@ export function MapZoomPopup({ sos, position, onClose, onDispatch }) {
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onDispatch(sos); }}
-              style={dispatchBtnStyle}
+              className="map-zoom-popup__dispatch-btn"
             >
               Triển khai cứu hộ
             </button>
@@ -146,49 +159,31 @@ export function MapZoomPopup({ sos, position, onClose, onDispatch }) {
   );
 }
 
-/* ── Styles ── */
-const wrapStyle = {
-  fontFamily: 'Roboto, sans-serif',
-  width: '260px',
-  position: 'relative',
-  padding: '6px 4px',
-};
-
-const iconBtnStyle = {
-  flex: 1,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '6px',
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  fontSize: '13px',
-  color: '#FF8852',
-  fontFamily: 'Roboto, sans-serif',
-  padding: '4px',
-};
-
-const dispatchBtnStyle = {
-  width: '100%',
-  marginTop: '20px',
-  background: '#F4804E',
-  color: '#FFFFFF',
-  border: 'none',
-  borderRadius: '8px',
-  padding: '12px 14px',
-  fontSize: '15px',
-  fontWeight: 700,
-  cursor: 'pointer',
-  fontFamily: 'Roboto, sans-serif',
-};
-
 function formatPhone(phone) {
   if (!phone) return '';
   const n = String(phone).trim();
   if (n.startsWith('+')) return n;
   if (n.startsWith('0')) return `(+84) ${n.slice(1)}`;
   return n;
+}
+
+function blendWithWhite(hex, alpha) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  const r = Math.round(rgb.r * alpha + 255 * (1 - alpha));
+  const g = Math.round(rgb.g * alpha + 255 * (1 - alpha));
+  const b = Math.round(rgb.b * alpha + 255 * (1 - alpha));
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function hexToRgb(hex) {
+  const normalized = String(hex || '').replace('#', '').trim();
+  if (normalized.length !== 6) return null;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+  return { r, g, b };
 }
 
 function getSosAddress(sos) {
