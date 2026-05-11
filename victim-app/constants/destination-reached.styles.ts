@@ -27,9 +27,9 @@ export const styles = StyleSheet.create({
     shadowRadius: 10,
   },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 },
-  arrivalTitle: { fontSize: 24, fontWeight: "bold", color: "#333" },
-  addressText: { fontSize: 14, color: "#555", marginTop: 4 },
-  subText: { fontSize: 12, color: "#999", marginTop: 2 },
+  arrivalTitle: { fontSize: 26, fontWeight: "bold", color: "#333" },
+  addressText: { fontSize: 16, color: "#555", marginTop: 4 },
+  subText: { fontSize: 14, color: "#999", marginTop: 2 },
 
   placeCard: {
     flexDirection: "row",
@@ -41,8 +41,8 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#F0F0F0"
   },
-  placeName: { fontSize: 16, fontWeight: "600", color: "#333" },
-  placeCategory: { fontSize: 13, color: "#777", marginTop: 2 },
+  placeName: { fontSize: 18, fontWeight: "600", color: "#333" },
+  placeCategory: { fontSize: 15, color: "#777", marginTop: 2 },
 
   actionRow: { flexDirection: "row", justifyContent: "space-between" },
   actionBtn: { 
@@ -57,7 +57,7 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#EEE"
   },
-  actionBtnText: { marginLeft: 8, fontSize: 13, fontWeight: "600", color: "#555" },
+  actionBtnText: { marginLeft: 8, fontSize: 15, fontWeight: "600", color: "#555" },
   parkingIcon: { width: 20, height: 20, backgroundColor: "#FF8852", borderRadius: 4, justifyContent: 'center', alignItems: 'center' },
-  parkingText: { color: "#FFF", fontSize: 12, fontWeight: "bold" }
+  parkingText: { color: "#FFF", fontSize: 14, fontWeight: "bold" }
 });

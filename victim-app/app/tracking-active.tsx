@@ -28,7 +28,6 @@ export default function TrackingActiveScreen() {
   const [showStreetLabel, setShowStreetLabel] = useState(true);
   const [rescueTeamInfo, setRescueTeamInfo] = useState<any>(null);
 
-  // ✅ Dùng useRef để nắm thóp cái vòng lặp 10s, tiện cho việc "khai tử" nó sau này
   const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ✅ LOGIC 1: LẮNG NGHE ĐỘI CỨU HỘ DI CHUYỂN
@@ -74,7 +73,6 @@ export default function TrackingActiveScreen() {
 
     updateMe();
     
-    // Gán vòng lặp 10s vào biến Ref
     locationIntervalRef.current = setInterval(updateMe, 10000); 
     const timer = setTimeout(() => setShowStreetLabel(false), 3000);
 
@@ -86,18 +84,21 @@ export default function TrackingActiveScreen() {
     };
   }, []);
 
-  // ✅ LOGIC 3: VẼ ĐƯỜNG VÀ CHECK ĐÍCH KHI GẶP NHAU
+  // ✅ LOGIC 3: VẼ ĐƯỜNG GẤP KHÚC (THUẬT TOÁN MANHATTAN 0.3) VÀ CHECK ĐÍCH
   useEffect(() => {
     if (currentLoc && destination) {
+      // 🛣️ Thuật toán nội suy tuyến tính với hệ số 0.3
       setRemainingRoute([
-        currentLoc,
+        currentLoc, // Điểm 1: Nạn nhân
         {
-          latitude:
-            currentLoc.latitude +
-            (destination.latitude - currentLoc.latitude) * 0.5,
+          latitude: currentLoc.latitude + (destination.latitude - currentLoc.latitude) * 0.3,
+          longitude: currentLoc.longitude,
+        }, // Điểm 2: Gấp khúc dọc (chạy 30% vĩ độ)
+        {
+          latitude: currentLoc.latitude + (destination.latitude - currentLoc.latitude) * 0.3,
           longitude: destination.longitude,
-        },
-        destination,
+        }, // Điểm 3: Gấp khúc ngang (chạy thẳng sang kinh độ đích)
+        destination, // Điểm 4: Đội cứu hộ (chạy nốt 70% vĩ độ còn lại)
       ]);
 
       const dist = Math.sqrt(
@@ -108,23 +109,19 @@ export default function TrackingActiveScreen() {
       // --- KHI HAI ĐỘI GẶP NHAU (Khoảng cách < 20m) ---
       if (dist < 0.0002) {
         
-        // 🔴 1. TẮT NGAY VÒNG LẶP ĐỊNH VỊ 10S ĐỂ BẢO VỆ PIN VÀ MÁY
         if (locationIntervalRef.current) {
           clearInterval(locationIntervalRef.current);
           locationIntervalRef.current = null;
-          console.log("🛑 Đã ngắt vòng lặp định vị 10s thành công!");
         }
 
         const finalizeMeeting = async () => {
           try {
             if (!requestId) return;
 
-            // 2. Chuyển status của SOS_Requests thành RESOLVED
             await updateDoc(doc(db, "SOS_Requests", requestId as string), {
               status: "RESOLVED",
             });
 
-            // 3. Tìm Dispatch tương ứng và chuyển thành MET_VICTIM
             const q = query(collection(db, "Dispatches"), where("requestId", "==", requestId));
             const dispatchSnap = await getDocs(q);
             
@@ -135,10 +132,15 @@ export default function TrackingActiveScreen() {
               });
             }
 
-            console.log("✅ Hệ thống: Đã cập nhật trạng thái Hoàn thành.");
-
-            // 4. Chuyển sang màn hình xác nhận cuối cùng
-            router.replace("/rescue-arrival");
+            // ✅ TRUYỀN THAM SỐ TÊN ĐỘI VÀ VỊ TRÍ GẶP NHAU
+            router.replace({
+              pathname: "/rescue-arrival",
+              params: {
+                rescueTeamName: rescueTeamInfo?.fullName || "Đội cứu hộ",
+                meetingLat: destination.latitude.toString(),
+                meetingLng: destination.longitude.toString(),
+              }
+            });
           } catch (error) {
             console.error("Lỗi khi cập nhật trạng thái kết thúc:", error);
             router.replace("/rescue-arrival");
@@ -218,11 +220,11 @@ export default function TrackingActiveScreen() {
             </View>
           </Marker>
           
-          <Marker
-            coordinate={destination}
-            title={rescueTeamInfo?.fullName}
-            pinColor="#FF8852"
-          />
+          <Marker coordinate={destination} anchor={{ x: 0.5, y: 0.5 }}>
+            <View style={styles.carMarkerWrapper}>
+              <Text>🚑</Text>
+            </View>
+          </Marker>
         </MapView>
       )}
 
@@ -261,8 +263,8 @@ export default function TrackingActiveScreen() {
           <Ionicons name="close" size={28} color="#555" />
         </TouchableOpacity>
         <View style={styles.statsContainer}>
-          <Text style={styles.timeValue}>15km</Text>
-          <Text style={styles.distValue}>23 phút</Text>
+          <Text style={styles.timeValue}>23 phút</Text>
+          <Text style={styles.distValue}>15 km</Text>
         </View>
         <TouchableOpacity
           style={styles.recenterBtn}

@@ -1,27 +1,63 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StatusBar, StyleSheet } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, StatusBar, StyleSheet, ActivityIndicator } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Location from "expo-location"; // ✅ THÊM EXPO LOCATION
 import { COLORS } from "../constants/colors";
 
 export default function RescueArrivalScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  const { rescueTeamName, meetingLat, meetingLng } = useLocalSearchParams();
+
+  const lat = meetingLat ? parseFloat(meetingLat as string) : 16.077076;
+  const lng = meetingLng ? parseFloat(meetingLng as string) : 108.219471;
+  const teamName = rescueTeamName ? (rescueTeamName as string) : "Đội cứu hộ";
+
   const arrivalLocation = { 
-    latitude: 16.077076, 
-    longitude: 108.219471,
+    latitude: lat, 
+    longitude: lng,
     latitudeDelta: 0.002,
     longitudeDelta: 0.002,
   };
+
+  // ✅ STATE LƯU ĐỊA CHỈ DỊCH NGƯỢC
+  const [address, setAddress] = useState("Đang dịch tọa độ...");
+
+  // ✅ CHẠY REVERSE GEOCODING KHI VÀO MÀN HÌNH
+  useEffect(() => {
+    const fetchAddress = async () => {
+      try {
+        let res = await Location.reverseGeocodeAsync({
+          latitude: lat,
+          longitude: lng,
+        });
+        if (res.length > 0) {
+          // Lấy Tên đường + Phường/Xã + Quận/Huyện
+          const street = res[0].street ? `${res[0].street}, ` : "";
+          const subregion = res[0].subregion ? `${res[0].subregion}, ` : "";
+          const region = res[0].region || "";
+          
+          setAddress(`${street}${subregion}${region}`);
+        } else {
+          setAddress("Không xác định được địa chỉ cụ thể");
+        }
+      } catch (error) {
+        console.log("Lỗi dịch địa chỉ:", error);
+        setAddress(`${lat}, ${lng}`); // Fallback nếu mạng lỗi
+      }
+    };
+
+    fetchAddress();
+  }, [lat, lng]);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      {/* --- BẢN ĐỒ NỀN --- */}
       <MapView
         provider={PROVIDER_GOOGLE}
         style={styles.map}
@@ -29,45 +65,54 @@ export default function RescueArrivalScreen() {
       >
         <Marker coordinate={arrivalLocation}>
           <View style={styles.markerWrapper}>
-             <Text style={styles.markerLabel}>Đội cứu hộ Công an Thành phố...</Text>
+             <Text style={styles.markerLabel}>{teamName}</Text>
              <Ionicons name="location" size={40} color="#FF8852" />
           </View>
         </Marker>
       </MapView>
 
-      {/* --- CÁC NÚT ĐIỀU KHIỂN PHỤ --- */}
       <View style={styles.sideButtons}>
         <TouchableOpacity style={styles.sideBtn}><MaterialCommunityIcons name="compass" size={24} color="#555" /></TouchableOpacity>
         <TouchableOpacity style={styles.sideBtn}><Ionicons name="search" size={24} color="#555" /></TouchableOpacity>
         <TouchableOpacity style={styles.sideBtn}><Ionicons name="volume-high" size={24} color="#555" /></TouchableOpacity>
       </View>
 
-      {/* --- BOTTOM SHEET --- */}
       <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.dragHandle} />
         
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.arrivalTitle}>Bạn đã đến nơi</Text>
-            <Text style={styles.addressText}>89 Trần Phú, Hải Châu 1, Hải Châu, Đà Nẵng</Text>
-            <Text style={styles.subText}>Đã xem gần đây</Text>
+            
+            {/* ✅ ĐÃ THAY TỌA ĐỘ BẰNG ĐỊA CHỈ TIẾNG VIỆT HOẶC ICON LOADING */}
+            {address === "Đang dịch tọa độ..." ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                <ActivityIndicator size="small" color="#666" style={{ marginRight: 5 }} />
+                <Text style={styles.addressText}>{address}</Text>
+              </View>
+            ) : (
+              <Text style={styles.addressText} numberOfLines={2}>{address}</Text>
+            )}
+
+            <Text style={styles.subText}>Trạng thái: Đã tiếp cận</Text>
           </View>
           <TouchableOpacity onPress={() => router.push("/(tabs)/home")} style={styles.closeBtn}>
             <Ionicons name="close" size={20} color="#555" />
           </TouchableOpacity>
         </View>
 
-        {/* Thẻ thông tin Đội cứu hộ */}
         <View style={styles.placeCard}>
           <View style={styles.placeInfo}>
-            <Text style={styles.placeName}>Đội cứu hộ Công an Thành phố Đà Nẵng</Text>
+            <Text style={styles.placeName}>{teamName}</Text>
             <Text style={styles.placeCategory}>Đội cứu hộ</Text>
           </View>
         </View>
 
-        {/* Hàng nút chức năng */}
         <View style={styles.actionRow}>
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#FFF5F0' }]}>
+          <TouchableOpacity 
+            style={[styles.actionBtn, { backgroundColor: '#FFF5F0' }]}
+            onPress={() => router.push("/(tabs)/home")}
+          >
             <Ionicons name="checkmark" size={20} color="#FF8852" />
             <Text style={[styles.actionBtnText, { color: '#FF8852' }]}>Xác nhận</Text>
           </TouchableOpacity>
@@ -96,7 +141,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, 
     paddingVertical: 4, 
     borderRadius: 5, 
-    fontSize: 10, 
+    fontSize: 15, 
     color: '#FF5252', 
     fontWeight: 'bold',
     marginBottom: -5,
@@ -138,9 +183,9 @@ const styles = StyleSheet.create({
     marginBottom: 15 
   },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  arrivalTitle: { fontSize: 22, fontWeight: 'bold', color: '#2D3142' },
-  addressText: { fontSize: 13, color: '#666', marginTop: 4 },
-  subText: { fontSize: 12, color: '#999', marginTop: 2 },
+  arrivalTitle: { fontSize: 26, fontWeight: 'bold', color: '#2D3142' },
+  addressText: { fontSize: 16, color: '#666', marginTop: 5, paddingRight: 10 },
+  subText: { fontSize: 15, color: '#999', marginTop: 5 },
   closeBtn: { backgroundColor: '#F0F0F0', width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   placeCard: { 
     backgroundColor: '#F8F9FB', 
@@ -152,12 +197,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center'
   },
-  // ✅ ĐÃ BỔ SUNG: placeInfo bị thiếu
   placeInfo: {
     flex: 1,
   },
-  placeName: { fontSize: 15, fontWeight: 'bold', color: '#2D3142' },
-  placeCategory: { fontSize: 13, color: '#888', marginTop: 2 },
+  placeName: { fontSize: 18, fontWeight: 'bold', color: '#2D3142' },
+  placeCategory: { fontSize: 16, color: '#888', marginTop: 2 },
   actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
   actionBtn: { 
     flexDirection: 'row', 
@@ -169,6 +213,6 @@ const styles = StyleSheet.create({
     flex: 0.32,
     justifyContent: 'center'
   },
-  actionBtnText: { fontSize: 12, fontWeight: '600', color: '#333', marginLeft: 6 },
-  parkingText: { color: '#FF8852', fontWeight: 'bold', fontSize: 16 },
+  actionBtnText: { fontSize: 15, fontWeight: '600', color: '#333', marginLeft: 6 },
+  parkingText: { color: '#FF8852', fontWeight: 'bold', fontSize: 19 },
 });
