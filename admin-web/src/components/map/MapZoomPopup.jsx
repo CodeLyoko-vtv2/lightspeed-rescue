@@ -4,9 +4,6 @@ import { VoiceRecordModal } from '../sos/VoiceRecordModal.jsx';
 import { GalleryModal } from '../sos/GalleryModal.jsx';
 import L from 'leaflet';
 import { Marker, Popup } from 'react-leaflet';
-import closeIcon from '../../assets/img/icon-close.svg';
-import micIcon from '../../assets/img/fluent_mic-record-24-regular.svg';
-import pinIcon from '../../assets/img/icon-pin.svg';
 import fireIcon from '../../assets/img/mdi_fire-station.svg';
 
 // Marker trong suốt — chỉ để neo popup đúng vị trí
@@ -26,7 +23,7 @@ const INCIDENT_META = {
   earthquake:       { label: 'Động đất', color: '#7C3AED', icon: null },
 };
 
-export function MapZoomPopup({ sos, position, onClose, onDispatch }) {
+export function MapZoomPopup({ sos, position, onDispatch }) {
   const markerRef = useRef(null);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showGalleryModal, setShowGalleryModal] = useState(false);
