@@ -1,0 +1,237 @@
+import { useState, useEffect, useRef } from 'react';
+import PropTypes from 'prop-types';
+import { Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+
+/**
+ * State machine:
+ *   idle → pending (Chờ phản hồi...) → active (Đang thực hiện nhiệm vụ...)
+ *        → received (Đã tiếp nhận nhiệm vụ) → update (Cập nhật trạng thái)
+ *   Popup CHỈ đóng khi nhận tín hiệu "Nhiệm vụ hoàn thành" từ bên ngoài
+ */
+const S = {
+  IDLE:     'idle',
+  PENDING:  'pending',    // "Chờ phản hồi..."
+  ACTIVE:   'active',     // "Đang thực hiện nhiệm vụ..."
+  RECEIVED: 'received',   // "Đã tiếp nhận nhiệm vụ"  (hiện trong popup)
+  UPDATE:   'update',     // "Cập nhật trạng thái"    (sau 3-4s)
+};
+
+const INVISIBLE_ICON = L.divIcon({
+  className: '',
+  html: '',
+  iconSize: [1, 1],
+  iconAnchor: [0, 0],
+});
+
+function formatPhone(phone) {
+  if (!phone) return '';
+  const n = String(phone).trim();
+  if (n.startsWith('+')) return n;
+  if (n.startsWith('0') || n.startsWith('02')) return `(+84) ${n.slice(1)}`;
+  return n;
+}
+
+export function TeamPopup({ team, position, onClose, onDispatched, onDispatchDenied, missionComplete, canDispatch }) {
+  const markerRef = useRef(null);
+  const [state, setState] = useState(S.IDLE);
+
+  /* Mở popup ngay khi render */
+  useEffect(() => {
+    const t = setTimeout(() => markerRef.current?.openPopup(), 60);
+    return () => clearTimeout(t);
+  }, [team?.id]);
+
+  /* Khi bên ngoài báo nhiệm vụ hoàn thành → đóng popup */
+  useEffect(() => {
+    if (missionComplete) onClose();
+  }, [missionComplete, onClose]);
+
+  /* State machine */
+  const handleDispatch = () => {
+    if (state !== S.IDLE) return;
+    setState(S.PENDING);
+
+    // Kiểm tra status của đội
+    const isBusy = team.status === 'busy';
+
+    // Sau 2.5s: 
+    setTimeout(() => {
+      if (isBusy) {
+        // Yêu cầu bị từ chối
+        onDispatchDenied?.(team);
+        setState(S.IDLE); // Reset state để có thể thử lại
+      } else {
+        // Chấp nhận
+        setState(S.ACTIVE);
+        onDispatched?.(team);
+
+        // Sau 1s nữa: chuyển RECEIVED
+        setTimeout(() => {
+          setState(S.RECEIVED);
+
+          // Sau 3.5s nữa: chuyển UPDATE
+          setTimeout(() => {
+            setState(S.UPDATE);
+          }, 3500);
+        }, 1000);
+      }
+    }, 2500);
+  };
+
+  if (!team || !position) return null;
+
+  const phone = formatPhone(team.phone);
+
+  /* Nội dung nút theo từng trạng thái */
+  const isDispatching = state !== S.IDLE;
+
+  const btnLabel = {
+    [S.IDLE]:     'Điều động cứu hộ',
+    [S.PENDING]:  'Chờ phản hồi...',
+    [S.ACTIVE]:   'Đang thực hiện nhiệm vụ...',
+    [S.RECEIVED]: 'Đang thực hiện nhiệm vụ...',
+    [S.UPDATE]:   'Đang thực hiện nhiệm vụ...',
+  }[state];
+
+  const btnBg = state === S.IDLE ? '#2563EB' : '#6B7280';
+
+  return (
+    <Marker
+      ref={markerRef}
+      position={position}
+      icon={INVISIBLE_ICON}
+      zIndexOffset={1100}
+    >
+      <Popup
+        className="team-popup"
+        closeButton={false}
+        autoPan={false}
+        offset={[0, -60]}
+      >
+        <div style={wrapStyle}>
+          {/* Nút X — chỉ hiện khi chưa điều động */}
+          {!isDispatching && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onClose(); }}
+              style={closeBtnStyle}
+              aria-label="Đóng"
+            >
+              <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor"
+                strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 1L1 13M1 1l12 12"/>
+              </svg>
+            </button>
+          )}
+
+          {/* Tên đội */}
+          <div style={{ fontSize: '12px', fontWeight: 600, color: '#1A73E8',
+            marginBottom: '8px', paddingRight: isDispatching ? 0 : '16px' }}>
+            {team.name || 'Đội cứu hộ'}
+          </div>
+
+          {/* Số điện thoại */}
+          {phone ? (
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#000000', marginBottom: '8px' }}>
+              {phone}
+            </div>
+          ) : null}
+
+          {/* Địa chỉ */}
+          <div style={{ fontSize: '11px', color: '#555555', marginBottom: '12px', lineHeight: 1.4 }}>
+            {team.address || ''}
+          </div>
+
+          {/* Nút Điều động */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleDispatch(); }}
+            disabled={isDispatching}
+            style={{
+              width: '100%',
+              padding: '8px 16px',
+              background: btnBg,
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: isDispatching ? 'default' : 'pointer',
+              fontFamily: 'Roboto, sans-serif',
+              transition: 'background 250ms ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+            }}
+          >
+            {state === S.PENDING ? <Spinner /> : null}
+            {btnLabel}
+          </button>
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
+
+/* ── Helper components ── */
+function Spinner() {
+  return (
+    <span style={{
+      display: 'inline-block',
+      width: '12px', height: '12px',
+      border: '2px solid rgba(255,255,255,0.4)',
+      borderTop: '2px solid white',
+      borderRadius: '50%',
+      animation: 'teamPopupSpin 0.7s linear infinite',
+      flexShrink: 0,
+    }} />
+  );
+}
+
+function StatusDot({ color }) {
+  return (
+    <span style={{
+      display: 'inline-block',
+      width: '7px', height: '7px',
+      borderRadius: '50%',
+      background: color,
+      flexShrink: 0,
+    }} />
+  );
+}
+StatusDot.propTypes = { color: PropTypes.string.isRequired };
+
+/* ── Styles ── */
+const wrapStyle = {
+  fontFamily: 'Roboto, sans-serif',
+  width: '220px',
+  position: 'relative',
+};
+
+const closeBtnStyle = {
+  position: 'absolute',
+  top: '-2px',
+  right: '-2px',
+  background: 'none',
+  border: 'none',
+  color: '#555555',
+  cursor: 'pointer',
+  width: '20px',
+  height: '20px',
+  display: 'grid',
+  placeItems: 'center',
+  padding: 0,
+};
+
+TeamPopup.propTypes = {
+  team: PropTypes.object,
+  position: PropTypes.shape({ lat: PropTypes.number, lng: PropTypes.number }),
+  onClose: PropTypes.func.isRequired,
+  onDispatched: PropTypes.func,
+  onDispatchDenied: PropTypes.func,
+  missionComplete: PropTypes.bool,
+  canDispatch: PropTypes.bool,
+};
+TeamPopup.defaultProps = { team: null, position: null, onDispatched: null, onDispatchDenied: null, missionComplete: false, canDispatch: true };

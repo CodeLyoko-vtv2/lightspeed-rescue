@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.env
+.env.local
+.env.production
+lightspeed-rescue-firebase-adminsdk-fbsvc-673e908631.json
