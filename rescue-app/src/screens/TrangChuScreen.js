@@ -29,6 +29,7 @@ import {
   useMission,
 } from "../context/MissionContext";
 import {
+  addDoc,
   collection,
   doc,
   getDoc,
@@ -57,6 +58,7 @@ const [showRecording, setShowRecording] =
   setMissionStatus,
 } = useMission();
   const [activeMissionId, setActiveMissionId] = useState(null);
+  const [activeSosId, setActiveSosId] = useState(null);
   const [activeSos, setActiveSos] = useState(null);
   const [isDispatching, setIsDispatching] = useState(false);
   const [rescuerId, setRescuerId] = useState(null);
@@ -142,6 +144,7 @@ useEffect(() => {
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       if (snapshot.empty) {
         setActiveMissionId(null);
+        setActiveSosId(null);
         setActiveSos(null);
         setVisible(false);
         setExpanded(false);
@@ -152,20 +155,74 @@ useEffect(() => {
       const missionDoc = snapshot.docs[0];
       const missionData = missionDoc.data();
       setActiveMissionId(missionDoc.id);
+      setActiveSosId(missionData?.sosId || null);
+      setMissionStatus("dispatch");
 
       if (missionData?.sosId) {
         const sosSnap = await getDoc(doc(db, "sos_alerts", missionData.sosId));
         if (sosSnap.exists()) {
-          setActiveSos(await hydrateSosWithVictim(sosSnap.id, sosSnap.data()));
+          const sosData = sosSnap.data();
+          const shouldHideMission =
+            ["cancelled", "completed", "resolved"].includes(sosData?.status) ||
+            ["accepted", "completed"].includes(sosData?.dispatchStatus);
+
+          if (shouldHideMission) {
+            setActiveMissionId(null);
+            setActiveSosId(null);
+            setActiveSos(null);
+            setVisible(false);
+            setExpanded(false);
+            setMissionStatus("idle");
+            return;
+          }
+
+          setActiveSos(await hydrateSosWithVictim(sosSnap.id, sosData));
           setVisible(true);
           setExpanded(true);
-          setMissionStatus("dispatch");
         }
+      } else {
+        setActiveSos(null);
+        setVisible(false);
+        setExpanded(false);
       }
     });
 
     return () => unsubscribe();
   }, [rescuerId, setMissionStatus]);
+
+  useEffect(() => {
+    if (!activeSosId) return undefined;
+
+    const unsubscribe = onSnapshot(doc(db, "sos_alerts", activeSosId), async (snapshot) => {
+      if (!snapshot.exists()) {
+        setActiveSos(null);
+        setVisible(false);
+        setExpanded(false);
+        return;
+      }
+
+      const sosData = snapshot.data();
+      const shouldHideMission =
+        ["cancelled", "completed", "resolved"].includes(sosData?.status) ||
+        ["accepted", "completed"].includes(sosData?.dispatchStatus);
+
+      if (shouldHideMission) {
+        setActiveMissionId(null);
+        setActiveSosId(null);
+        setActiveSos(null);
+        setVisible(false);
+        setExpanded(false);
+        setMissionStatus("idle");
+        return;
+      }
+
+      setActiveSos(await hydrateSosWithVictim(snapshot.id, sosData));
+      setVisible(true);
+      setExpanded(true);
+    });
+
+    return () => unsubscribe();
+  }, [activeSosId, setMissionStatus]);
 
   const handleAcceptMission = async () => {
     if (!activeMissionId || !activeSos?.id || isDispatching) return;
@@ -181,7 +238,13 @@ useEffect(() => {
         acceptedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      setMissionStatus("onMission");
+
+      setActiveMissionId(null);
+      setActiveSosId(null);
+      setActiveSos(null);
+      setVisible(false);
+      setExpanded(false);
+      setMissionStatus("accepted");
       router.push("/KichHoatGiap");
     } catch (error) {
       console.error("Lỗi nhận nhiệm vụ:", error);
@@ -211,6 +274,7 @@ useEffect(() => {
         });
       }
       setActiveMissionId(null);
+      setActiveSosId(null);
       setActiveSos(null);
       setSelectedReason("");
       setRejectText("");
@@ -222,6 +286,62 @@ useEffect(() => {
     }
   };
 
+  const handleCompleteMission = async () => {
+    if (!activeMissionId || !activeSos?.id || isDispatching) return;
+
+    const rescueName =
+      rescuerProfile?.fullName ||
+      rescuerProfile?.displayName ||
+      rescuerProfile?.name ||
+      "Đội cứu hộ";
+    const rescuePhone = rescuerProfile?.phoneNumber || rescuerProfile?.phone || "";
+    const completeVictimName =
+      activeSos?.victimName || activeSos?.name || activeSos?.fullName || "nạn nhân";
+    const completeVictimPhone =
+      activeSos?.victimPhone || activeSos?.phone || activeSos?.phoneNumber || "";
+
+    try {
+      setIsDispatching(true);
+
+      await updateDoc(doc(db, "rescue_missions", activeMissionId), {
+        status: "completed",
+        completedAt: serverTimestamp(),
+        completedBy: rescuerId,
+        updatedAt: serverTimestamp(),
+      });
+
+      await updateDoc(doc(db, "sos_alerts", activeSos.id), {
+        dispatchStatus: "completed",
+        completedBy: rescuerId,
+        completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await addDoc(collection(db, "notifications"), {
+        type: "RESCUE_MISSION_COMPLETED",
+        targetRole: "admin",
+        title: "Đội cứu hộ hoàn thành nhiệm vụ",
+        body: `${rescueName}${rescuePhone ? ` (${rescuePhone})` : ""} đã hoàn thành nhiệm vụ giải cứu ${completeVictimName}${completeVictimPhone ? ` (${completeVictimPhone})` : ""}.`,
+        missionId: activeMissionId,
+        sosId: activeSos.id,
+        rescuerId,
+        victimId: activeSos?.victimId || null,
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+
+      setActiveMissionId(null);
+      setActiveSosId(null);
+      setActiveSos(null);
+      setVisible(false);
+      setExpanded(false);
+      setMissionStatus("idle");
+    } catch (error) {
+      console.error("Lỗi hoàn thành nhiệm vụ:", error);
+    } finally {
+      setIsDispatching(false);
+    }
+  };
   const victimName = activeSos?.victimName || "Nạn nhân";
   const victimPhone = activeSos?.victimPhone || activeSos?.phone || activeSos?.phoneNumber || "";
   const victimAddress =
@@ -428,14 +548,8 @@ onPress={() => setShowRecording(true)}>
 
   <TouchableOpacity
     style={styles.completeButton}
-    onPress={() => {
-
-  setMissionStatus(
-    "dispatch"
-  );
-  resetDispatchCard();
-
-}}
+    onPress={handleCompleteMission}
+    disabled={isDispatching}
   >
     <Text style={styles.acceptText}>
       Hoàn thành nhiệm vụ

@@ -4,7 +4,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { COLORS } from "../constants/colors";
 import { styles } from "../constants/destination-reached.styles";
@@ -22,7 +22,10 @@ export default function DestinationReachedScreen() {
     try {
       setIsCompleting(true);
       await updateDoc(doc(db, "sos_alerts", String(requestId)), {
-        status: "completed",
+        victimMetRescuer: true,
+        rescueConfirmationStatus: "confirmed",
+        rescueConfirmedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
 
       const missionQuery = query(
@@ -32,10 +35,21 @@ export default function DestinationReachedScreen() {
       const missionSnap = await getDocs(missionQuery);
       if (!missionSnap.empty) {
         await updateDoc(doc(db, "rescue_missions", missionSnap.docs[0].id), {
-          status: "completed",
-          completedAt: serverTimestamp(),
+          victimMetRescuer: true,
+          rescueConfirmationStatus: "confirmed",
+          rescueConfirmedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
         });
       }
+      await addDoc(collection(db, "notifications"), {
+        targetRole: "admin",
+        title: "Nạn nhân đã gặp đội cứu hộ",
+        body: `Nạn nhân đã xác nhận gặp đội cứu hộ cho SOS ${String(requestId)}.`,
+        sosId: String(requestId),
+        type: "VICTIM_MET_RESCUER",
+        read: false,
+        createdAt: serverTimestamp(),
+      });
       Alert.alert("Thành công", "Giải cứu thành công!");
       router.push("/(tabs)/map");
     } catch (error) {

@@ -1,17 +1,33 @@
 "use strict";
 
 const { logger } = require("firebase-functions");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 const sendToVictim = async ({ victimId, sosId, title, body }) => {
   try {
-    logger.info("sendToVictim not implemented", {
+    if (!victimId) {
+      logger.warn("sendToVictim missing victimId", {
+        sosId,
+        title,
+        body
+      });
+      return null;
+    }
+
+    const firestore = getFirestore();
+    const docRef = await firestore.collection("notifications").add({
+      targetRole: "victim",
       victimId,
+      targetUserId: victimId,
       sosId,
-      title,
-      body
+      title: title || "",
+      body: body || "",
+      type: "RESCUE_ACCEPTED",
+      read: false,
+      createdAt: FieldValue.serverTimestamp()
     });
 
-    return null;
+    return docRef.id;
   } catch (error) {
     logger.warn("sendToVictim failed", {
       victimId,
@@ -23,5 +39,6 @@ const sendToVictim = async ({ victimId, sosId, title, body }) => {
 };
 
 module.exports = {
-  sendToVictim
+  sendToVictim,
+  notifyVictim: sendToVictim
 };

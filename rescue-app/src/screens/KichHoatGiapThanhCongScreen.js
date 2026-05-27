@@ -8,14 +8,15 @@ import {
   TouchableOpacity,
   Image,
 } from "react-native";
-import {
-  useRouter,
-  usePathname,
-} from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { openVictimDirectionsForRescuer } from "../utils/googleMapsNavigation";
 
 export default function KichHoatThanhCongScreen() {
-  const router = useRouter();
+  const handleOpenDirections = async () => {
+    const rescuerId = await AsyncStorage.getItem("rescuerUid");
+    openVictimDirectionsForRescuer(rescuerId);
+  };
   const player = useVideoPlayer(
     require("../../assets/images/Kich hoat thanh cong.mp4"),
     (player) => {
@@ -121,9 +122,9 @@ export default function KichHoatThanhCongScreen() {
       </View>
 
       {/* BUTTON */}
-      <TouchableOpacity style={styles.launchButton} onPress={() => router.push("/BanDoDuongDi2")}>
+      <TouchableOpacity style={styles.launchButton} onPress={handleOpenDirections}>
         <Text style={styles.launchText}>
-          XUẤT KÍCH
+          CHỈ ĐƯỜNG
         </Text>
       </TouchableOpacity>
     </SafeAreaView>

@@ -17,7 +17,8 @@ import {
   View,
   Alert,
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapViewDirections from "react-native-maps-directions";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   collection,
@@ -39,6 +40,7 @@ export default function TrackingRescueScreen() {
   const [origin, setOrigin] = useState<any>(null);
   const [destination, setDestination] = useState<any>(null);
   const [rescueTeamInfo, setRescueTeamInfo] = useState<any>(null);
+  const [rescuerId, setRescuerId] = useState<string | null>(null);
   const [addressName, setAddressName] = useState("Đang định vị...");
 
   const [distance] = useState(15.0);
@@ -80,16 +82,7 @@ export default function TrackingRescueScreen() {
 
         if (!missionSnap.empty) {
           const teamId = missionSnap.docs[0].data().rescuerId;
-          const teamDoc = await getDoc(doc(db, "Users", teamId));
-
-          if (teamDoc.exists()) {
-            const teamData = teamDoc.data();
-            setRescueTeamInfo(teamData);
-            setDestination({
-              latitude: teamData.currentLocation.latitude,
-              longitude: teamData.currentLocation.longitude,
-            });
-          }
+          setRescuerId(teamId || null);
         }
       } catch (e) {
         console.error(e);
@@ -98,23 +91,38 @@ export default function TrackingRescueScreen() {
     fetchDataOnce();
   }, [requestId]);
 
-  const routeCoordinates =
-    origin && destination
-      ? [
-          origin,
-          {
-            latitude:
-              origin.latitude + (destination.latitude - origin.latitude) * 0.3,
-            longitude: origin.longitude,
-          },
-          {
-            latitude:
-              origin.latitude + (destination.latitude - origin.latitude) * 0.3,
-            longitude: destination.longitude,
-          },
-          destination,
-        ]
-      : [];
+  useEffect(() => {
+    if (!rescuerId) return;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const fetchRescuerLocation = async () => {
+      const teamDoc = await getDoc(doc(db, "Users", rescuerId));
+      if (!teamDoc.exists()) return;
+      const teamData = teamDoc.data();
+      const loc = teamData.currentLocation || teamData.location;
+      if (!loc) return;
+
+      setRescueTeamInfo(teamData);
+      if (loc.latitude && loc.longitude) {
+        setDestination({
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+        });
+      } else if (loc.lat && loc.lng) {
+        setDestination({
+          latitude: loc.lat,
+          longitude: loc.lng,
+        });
+      }
+    };
+
+    fetchRescuerLocation();
+    intervalId = setInterval(fetchRescuerLocation, 10000);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [rescuerId]);
 
   return (
     <View style={styles.container}>
@@ -205,11 +213,14 @@ export default function TrackingRescueScreen() {
           >
             <View style={styles.carMarkerWrapper}><Text>🚑</Text></View>
           </Marker>
-          <Polyline
-            coordinates={routeCoordinates}
-            strokeWidth={4}
+          <MapViewDirections
+            origin={origin}
+            destination={destination}
+            apikey={process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || ""}
+            strokeWidth={5}
             strokeColor={COLORS.primary}
-            lineDashPattern={[5, 5]}
+            mode="DRIVING"
+            onError={() => {}}
           />
         </MapView>
       )}

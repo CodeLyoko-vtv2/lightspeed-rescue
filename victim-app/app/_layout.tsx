@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import CustomSplash from '../components/CustomSplash';
+import { openRescuerDirectionsBySosId } from '../utils/googleMapsNavigation';
 
 const AuthContext = createContext({
   isAuth: false,
@@ -45,6 +46,37 @@ export default function RootLayout() {
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    let subscription: { remove: () => void } | null = null;
+
+    import('expo-notifications')
+      .then((Notifications) => {
+        Notifications.setNotificationCategoryAsync('RESCUE_ACCEPTED', [
+          {
+            identifier: 'OPEN_DIRECTIONS',
+            buttonTitle: 'Chỉ đường',
+            options: { opensAppToForeground: true },
+          },
+        ]);
+
+        subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+          const data = response.notification.request.content.data as {
+            requestId?: string;
+            screen?: string;
+          };
+
+          if (data?.requestId && data.screen === 'tracking-rescue') {
+            openRescuerDirectionsBySosId(data.requestId);
+          }
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [router]);
 
   useEffect(() => {
     if (!appReady || splashVisible) return;

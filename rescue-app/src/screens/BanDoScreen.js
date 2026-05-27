@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import {
+  Image,
   View,
   StyleSheet,
 } from "react-native";
 import {
   useRouter,
 } from "expo-router";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import {
   collection,
@@ -25,6 +25,7 @@ import MainActions from "../components/map/MainActions";
 import SecondaryActions from "../components/map/SecondaryActions";
 import SearchBar from "../components/map/SearchBar";
 import FilterPills from "../components/map/FilterPills";
+import { openVictimDirectionsForRescuer } from "../utils/googleMapsNavigation";
 
 export default function BanDoScreen() {
   const router = useRouter();
@@ -131,35 +132,35 @@ export default function BanDoScreen() {
     };
   }, [rescuerId]);
 
-  const initialRegion = rescuerLocation
-    ? {
-        ...rescuerLocation,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }
-    : victimLocation
-      ? {
-          ...victimLocation,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }
-      : {
-          latitude: 16.0544,
-          longitude: 108.2022,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        };
   return (
     <View style={styles.container}>
-      {/* Map */}
-      <MapView
-        provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        initialRegion={initialRegion}
-      >
-        {rescuerLocation && <Marker coordinate={rescuerLocation} />}
-        {victimLocation && <Marker coordinate={victimLocation} />}
-      </MapView>
+      <View style={styles.mapFallback}>
+        <View style={styles.landPatchLarge} />
+        <View style={styles.landPatchSmall} />
+        <View style={[styles.road, styles.roadOne]} />
+        <View style={[styles.road, styles.roadTwo]} />
+        <View style={[styles.road, styles.roadThree]} />
+        <View style={[styles.road, styles.roadFour]} />
+        <View style={styles.waterArea} />
+
+        {victimLocation ? (
+          <View style={styles.victimMarker}>
+            <Image
+              source={require("../../assets/icons/pin-trangchu.png")}
+              style={styles.markerIcon}
+              resizeMode="contain"
+            />
+          </View>
+        ) : null}
+
+        {rescuerLocation ? (
+          <View style={styles.rescuerMarker}>
+            <View style={styles.rescuerDotOuter}>
+              <View style={styles.rescuerDotInner} />
+            </View>
+          </View>
+        ) : null}
+      </View>
 
       {/* Search */}
       <SearchBar onPress={() =>
@@ -173,7 +174,10 @@ export default function BanDoScreen() {
       <SecondaryActions />
 
       {/* Main actions */}
-      <MainActions />
+      <MainActions
+        directionsEnabled={Boolean(victimLocation)}
+        onDirections={() => openVictimDirectionsForRescuer(rescuerId)}
+      />
 
       {/* Bottom Navbar */}
       <BottomNavbar />
@@ -191,6 +195,126 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     position: "absolute",
+  },
+
+  mapFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#EEF3EA",
+    overflow: "hidden",
+  },
+
+  landPatchLarge: {
+    position: "absolute",
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: "#D8ECCE",
+    top: 70,
+    left: -90,
+    transform: [{ rotate: "-18deg" }],
+  },
+
+  landPatchSmall: {
+    position: "absolute",
+    width: 210,
+    height: 210,
+    borderRadius: 105,
+    backgroundColor: "#E8E2C8",
+    right: -45,
+    bottom: 210,
+    transform: [{ rotate: "12deg" }],
+  },
+
+  waterArea: {
+    position: "absolute",
+    width: 180,
+    height: "120%",
+    right: -70,
+    top: -40,
+    backgroundColor: "#B9DCEC",
+    transform: [{ rotate: "8deg" }],
+  },
+
+  road: {
+    position: "absolute",
+    height: 12,
+    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#D7DED7",
+  },
+
+  roadOne: {
+    width: "135%",
+    top: 190,
+    left: -80,
+    transform: [{ rotate: "-17deg" }],
+  },
+
+  roadTwo: {
+    width: "125%",
+    top: 390,
+    left: -50,
+    transform: [{ rotate: "18deg" }],
+  },
+
+  roadThree: {
+    width: "110%",
+    top: 520,
+    left: -20,
+    transform: [{ rotate: "-8deg" }],
+  },
+
+  roadFour: {
+    width: 14,
+    height: "115%",
+    top: -20,
+    left: "48%",
+    transform: [{ rotate: "4deg" }],
+  },
+
+  victimMarker: {
+    position: "absolute",
+    top: "43%",
+    left: "55%",
+    width: 46,
+    height: 46,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  markerIcon: {
+    width: 34,
+    height: 34,
+    tintColor: "#E53935",
+  },
+
+  rescuerMarker: {
+    position: "absolute",
+    top: "54%",
+    left: "38%",
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  rescuerDotOuter: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(255, 136, 82, 0.22)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  rescuerDotInner: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#FF8852",
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
   },
 
   searchContainer: {

@@ -6,12 +6,13 @@ import {
   StatusBar,
   ActivityIndicator,
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapViewDirections from "react-native-maps-directions";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { doc, onSnapshot, query, collection, where, updateDoc, getDocs } from "firebase/firestore"; 
+import { doc, getDoc, onSnapshot, query, collection, where, updateDoc, getDocs } from "firebase/firestore"; 
 import { db } from "../firebaseConfig";
 import { COLORS } from "../constants/colors";
 import { styles } from "../constants/navigation-active.styles";
@@ -24,8 +25,7 @@ export default function TrackingActiveScreen() {
 
   const [destination, setDestination] = useState<any>(null);
   const [currentLoc, setCurrentLoc] = useState<any>(null);
-  const [remainingRoute, setRemainingRoute] = useState<any[]>([]);
-  const [showStreetLabel, setShowStreetLabel] = useState(true);
+  const [, setRemainingRoute] = useState<any[]>([]);
   const [rescueTeamInfo, setRescueTeamInfo] = useState<any>(null);
 
   const locationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -39,25 +39,43 @@ export default function TrackingActiveScreen() {
       where("sosId", "==", requestId),
       where("status", "in", ["accepted", "pending"]),
     );
-    let unsubTeam: (() => void) | null = null;
+    let teamInterval: ReturnType<typeof setInterval> | null = null;
+    let currentTeamId: string | null = null;
+
+    const fetchTeamLocation = async () => {
+      if (!currentTeamId) return;
+      const teamDoc = await getDoc(doc(db, "Users", currentTeamId));
+      if (!teamDoc.exists()) return;
+      const teamData = teamDoc.data();
+      const loc = teamData.currentLocation || teamData.location;
+      if (!loc) return;
+
+      setRescueTeamInfo(teamData);
+      if (loc.latitude && loc.longitude) {
+        setDestination({
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+        });
+      } else if (loc.lat && loc.lng) {
+        setDestination({
+          latitude: loc.lat,
+          longitude: loc.lng,
+        });
+      }
+    };
+
     const unsubMission = onSnapshot(q, (snapshot) => {
       if (!snapshot.empty) {
         const teamId = snapshot.docs[0].data().rescuerId;
-        if (unsubTeam) unsubTeam();
-        unsubTeam = onSnapshot(doc(db, "Users", teamId), (teamDoc) => {
-          if (teamDoc.exists()) {
-            const teamData = teamDoc.data();
-            setRescueTeamInfo(teamData);
-            setDestination({
-              latitude: teamData.currentLocation.latitude,
-              longitude: teamData.currentLocation.longitude,
-            });
-          }
-        });
+        if (!teamId || currentTeamId === teamId) return;
+        if (teamInterval) clearInterval(teamInterval);
+        currentTeamId = teamId;
+        fetchTeamLocation();
+        teamInterval = setInterval(fetchTeamLocation, 10000);
       }
     });
     return () => {
-      if (unsubTeam) unsubTeam();
+      if (teamInterval) clearInterval(teamInterval);
       unsubMission();
     };
   }, [requestId]);
@@ -79,13 +97,10 @@ export default function TrackingActiveScreen() {
     updateMe();
     
     locationIntervalRef.current = setInterval(updateMe, 10000); 
-    const timer = setTimeout(() => setShowStreetLabel(false), 3000);
-
     return () => {
       if (locationIntervalRef.current) {
         clearInterval(locationIntervalRef.current);
       }
-      clearTimeout(timer);
     };
   }, []);
 
@@ -201,15 +216,14 @@ export default function TrackingActiveScreen() {
             longitudeDelta: 0.002,
           }}
         >
-          <Polyline
-            coordinates={remainingRoute}
-            strokeWidth={8}
-            strokeColor="#333"
-          />
-          <Polyline
-            coordinates={remainingRoute}
-            strokeWidth={5}
+          <MapViewDirections
+            origin={currentLoc}
+            destination={destination}
+            apikey={process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || ""}
+            strokeWidth={6}
             strokeColor="#FF8852"
+            mode="DRIVING"
+            onError={() => {}}
           />
           <Marker coordinate={currentLoc} anchor={{ x: 0.5, y: 0.5 }}>
             <View

@@ -303,6 +303,7 @@ export default function HomeScreen() {
                     "• Di chuyển theo chỉ dẫn trên bản đồ.",
                   ],
                   isImportant: true,
+                  requestId: currentRequestId,
                 },
                 ...prev,
               ];
@@ -314,7 +315,8 @@ export default function HomeScreen() {
                 title: "Đội cứu hộ đang đến! 🚑",
                 body: "Yêu cầu của bạn đã được tiếp nhận. Hãy giữ bình tĩnh.",
                 sound: true,
-                data: { requestId: currentRequestId },
+                categoryIdentifier: "RESCUE_ACCEPTED",
+                data: { requestId: currentRequestId, screen: "tracking-rescue" },
               },
               trigger: null,
             });
@@ -323,7 +325,7 @@ export default function HomeScreen() {
       });
     });
     return () => unsubscribe();
-  }, [isSOSActive, currentRequestId, isRescueAccepted]);
+  }, [isSOSActive, currentRequestId, isRescueAccepted, notificationsApi]);
 
   // 2. RULE 10S: CẬP NHẬT TỌA ĐỘ NẠN NHÂN LÊN FIREBASE (CHẠY NGẦM)
   useEffect(() => {

@@ -132,14 +132,45 @@ const onSosClosed = onDocumentUpdated(
         }
       }
 
+      try {
+        const missionSnapshot = await firestore
+          .collection("rescue_missions")
+          .where("sosId", "==", sosId)
+          .get();
+
+        if (!missionSnapshot.empty) {
+          const batch = firestore.batch();
+          missionSnapshot.docs.forEach((missionDoc) => {
+            batch.set(
+              missionDoc.ref,
+              {
+                status: after.status,
+                closedReason: after.cancelReason || after.reason || after.status,
+                closedAt: new Date()
+              },
+              { merge: true }
+            );
+          });
+          await batch.commit();
+        }
+      } catch (error) {
+        logger.warn("onSosClosed rescue mission update failed", {
+          sosId,
+          error: error && error.message ? error.message : String(error)
+        });
+      }
+
       if (typeof sendToAdmin === "function") {
         const victimName = after.victimName || "Nan nhan";
+        const isCancelled = after.status === "cancelled";
         try {
           await sendToAdmin({
-            title: "✅ Giải cứu thành công",
-            body: `${victimName} đã được giải cứu thành công`,
+            title: isCancelled ? "Tín hiệu SOS đã tắt" : "Giải cứu thành công",
+            body: isCancelled
+              ? `${victimName} đã hủy tín hiệu SOS.`
+              : `${victimName} đã được giải cứu thành công`,
             sosId,
-            type: "RESOLVED"
+            type: isCancelled ? "SOS_CANCELLED" : "RESOLVED"
           });
         } catch (error) {
           logger.warn("onSosClosed sendToAdmin failed", {

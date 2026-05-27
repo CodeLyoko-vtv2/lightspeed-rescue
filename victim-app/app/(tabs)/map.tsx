@@ -12,13 +12,15 @@ import {
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
 import Constants from "expo-constants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore"; // ✅ Import thêm doc, onSnapshot
+import { collection, doc, getDoc, onSnapshot, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "../../firebaseConfig"; // ✅ Import db
 import { COLORS } from "../../constants/colors";
 import { styles } from "../../constants/(tabs)/map.styles";
 import { router } from "expo-router";
+import { openGoogleMapsNavigation } from "../../utils/googleMapsNavigation";
 
 const Notifications = {
   addNotificationReceivedListener: (listener: any) => {
@@ -56,9 +58,44 @@ export default function MapScreen() {
   const [activeRescueId, setActiveRescueId] = useState<string | null>(null);
   const [rescuerLocation, setRescuerLocation] = useState<any>(null);
 
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+    let mounted = true;
+
+    AsyncStorage.getItem("userUid").then((victimId) => {
+      if (!mounted || !victimId) return;
+
+      const activeSosQuery = query(
+        collection(db, "sos_alerts"),
+        where("victimId", "==", victimId),
+      );
+
+      unsubscribe = onSnapshot(activeSosQuery, (snapshot) => {
+        const activeStatuses = new Set(["pending", "assigned", "accepted"]);
+        const rescueReady = snapshot.docs
+          .map((sosDoc) => ({ id: sosDoc.id, ...(sosDoc.data() as any) }))
+          .find(
+            (sos) =>
+              activeStatuses.has(sos.status) &&
+              (sos.rescuerId ||
+                sos.dispatchStatus === "accepted" ||
+                sos.status === "accepted"),
+          );
+
+        setActiveRescueId(rescueReady?.id || null);
+        if (!rescueReady) setRescuerLocation(null);
+      });
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe?.();
+    };
+  }, []);
+
   // 1. ✅ LẮNG NGHE THÔNG BÁO ĐỂ "MỞ KHÓA" NÚT CHỈ ĐƯỜNG (Tiết kiệm Firebase)
   useEffect(() => {
-    const subscription = Notifications.addNotificationReceivedListener(notification => {
+    const subscription = Notifications.addNotificationReceivedListener((notification: any) => {
   // ✅ Ép kiểu dữ liệu trả về thành any hoặc định nghĩa interface cho nó
   const data = notification.request.content.data as { requestId?: string };
   if (data && data.requestId) {
@@ -138,8 +175,27 @@ export default function MapScreen() {
   // 2.6. ✅ LẮNG NGHE VỊ TRÍ ĐỘI CỨU HỘ THEO rescuerId
   useEffect(() => {
     if (!activeRescueId) return;
-    let rescuerUnsub: (() => void) | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
     let currentRescuerId: string | null = null;
+
+    const readRescuerLocation = async () => {
+      if (!currentRescuerId) return;
+      const rescuerSnap = await getDoc(doc(db, "Users", currentRescuerId));
+      if (!rescuerSnap.exists()) return;
+      const rescuerData = rescuerSnap.data();
+      const loc = rescuerData?.location || rescuerData?.currentLocation;
+      if (loc?.latitude && loc?.longitude) {
+        setRescuerLocation({
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+        });
+      } else if (loc?.lat && loc?.lng) {
+        setRescuerLocation({
+          latitude: loc.lat,
+          longitude: loc.lng,
+        });
+      }
+    };
 
     const sosUnsub = onSnapshot(doc(db, "sos_alerts", activeRescueId), (snap) => {
       if (!snap.exists()) return;
@@ -147,38 +203,24 @@ export default function MapScreen() {
       const rescuerId = data?.rescuerId || null;
 
       if (!rescuerId) {
-        if (rescuerUnsub) rescuerUnsub();
-        rescuerUnsub = null;
+        if (intervalId) clearInterval(intervalId);
+        intervalId = null;
         currentRescuerId = null;
         setRescuerLocation(null);
         return;
       }
 
       if (currentRescuerId === rescuerId) return;
-      if (rescuerUnsub) rescuerUnsub();
+      if (intervalId) clearInterval(intervalId);
 
       currentRescuerId = rescuerId;
-      rescuerUnsub = onSnapshot(doc(db, "Users", rescuerId), (rescuerSnap) => {
-        if (!rescuerSnap.exists()) return;
-        const rescuerData = rescuerSnap.data();
-        const loc = rescuerData?.location || rescuerData?.currentLocation;
-        if (loc?.latitude && loc?.longitude) {
-          setRescuerLocation({
-            latitude: loc.latitude,
-            longitude: loc.longitude,
-          });
-        } else if (loc?.lat && loc?.lng) {
-          setRescuerLocation({
-            latitude: loc.lat,
-            longitude: loc.lng,
-          });
-        }
-      });
+      readRescuerLocation();
+      intervalId = setInterval(readRescuerLocation, 10000);
     });
 
     return () => {
       sosUnsub();
-      if (rescuerUnsub) rescuerUnsub();
+      if (intervalId) clearInterval(intervalId);
     };
   }, [activeRescueId]);
 
@@ -295,14 +337,14 @@ export default function MapScreen() {
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={[styles.directionButton, { backgroundColor: activeRescueId ? COLORS.primary : "#B0BEC5" }]}
-          activeOpacity={activeRescueId ? 0.7 : 1}
+          style={[styles.directionButton, { backgroundColor: activeRescueId && rescuerLocation ? COLORS.primary : "#B0BEC5" }]}
+          activeOpacity={activeRescueId && rescuerLocation ? 0.7 : 1}
           onPress={() => {
-            if (activeRescueId) {
-              router.push({
-                pathname: "/tracking-rescue",
-                params: { requestId: activeRescueId }
-              });
+            if (activeRescueId && rescuerLocation) {
+              openGoogleMapsNavigation(
+                rescuerLocation,
+                "Đội cứu hộ chưa cập nhật vị trí hiện tại.",
+              );
             } else {
               Alert.alert("Thông báo", "Bạn chưa phát tín hiệu cầu cứu hoặc chưa có đội cứu hộ tiếp nhận.");
             }

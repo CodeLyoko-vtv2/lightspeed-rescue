@@ -10,7 +10,7 @@ export function useSosRealtime() {
   useEffect(() => {
     const sosQuery = query(
       collection(db, 'sos_alerts'),
-      where('status', '==', 'pending'),
+      where('status', 'in', ['pending', 'assigned', 'accepted']),
     );
 
     const unsubscribe = onSnapshot(

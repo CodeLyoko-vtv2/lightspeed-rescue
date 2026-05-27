@@ -8,8 +8,8 @@ import {
   Animated 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router'; // ✅ Thêm router để điều hướng
 import { COLORS } from '../constants/colors';
+import { openRescuerDirectionsBySosId } from '../utils/googleMapsNavigation';
 
 interface Props {
   title: string;
@@ -21,7 +21,6 @@ interface Props {
 }
 
 export const ExpandableNotification = ({ title, content, isImportant, defaultExpanded = false, requestId, onClose }: Props) => {
-  const router = useRouter();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const animation = useRef(new Animated.Value(defaultExpanded ? 1 : 0)).current;
 
@@ -66,14 +65,10 @@ export const ExpandableNotification = ({ title, content, isImportant, defaultExp
               style={styles.actionBtn}
               onPress={() => {
                 if (onClose) onClose(); // Thu khay thông báo lại trước khi đi
-                // ✅ Chuyển sang trang theo dõi thực tế
-                router.push({
-                  pathname: "/tracking-rescue",
-                  params: { requestId: requestId }
-                });
+                openRescuerDirectionsBySosId(requestId);
               }}
             >
-              <Text style={styles.actionBtnText}>XEM VỊ TRÍ ĐỘI CỨU HỘ</Text>
+              <Text style={styles.actionBtnText}>Chỉ đường</Text>
             </TouchableOpacity>
           )}
         </View>

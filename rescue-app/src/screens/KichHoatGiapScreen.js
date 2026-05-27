@@ -163,7 +163,7 @@ export default function KichHoatGiapScreen() {
 
         <TouchableOpacity
           style={styles.skipButton}
-          onPress={() => router.push("/BanDoBatDau")}
+          onPress={() => router.replace("/KichHoatGiapThanhCong")}
         >
           <Text style={styles.skipText}>
             SKIP
