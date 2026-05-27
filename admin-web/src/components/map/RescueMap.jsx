@@ -13,6 +13,7 @@ export function RescueMap({
   mapRef,
   sosList,
   selectedSosId,
+  selectedSosOpenKey,
   onMarkerClick,
   teamList,
   activeFilter,
@@ -20,6 +21,7 @@ export function RescueMap({
   onClosePopup,
   // Dispatch mode
   dispatchMode,
+  dispatchSosId,
   selectedTeam,
   onTeamClick,
   onTeamClose,
@@ -77,8 +79,10 @@ export function RescueMap({
       {/* SOS zoom popup */}
       {selectedSos && getSosPosition(selectedSos) && !dispatchMode ? (
         <MapZoomPopup
+          key={`${selectedSos.id}-${selectedSosOpenKey}`}
           sos={selectedSos}
           position={getSosPosition(selectedSos)}
+          openKey={selectedSosOpenKey}
           onClose={onClosePopup}
           onDispatch={onDispatch}
         />
@@ -89,6 +93,7 @@ export function RescueMap({
         <TeamPopup
           team={selectedTeam}
           position={selectedTeam.location}
+          sosId={dispatchSosId}
           onClose={onTeamClose}
           onDispatched={onTeamDispatched}
           onDispatchDenied={onDispatchDenied}
@@ -113,6 +118,7 @@ RescueMap.propTypes = {
   mapRef: PropTypes.shape({ current: PropTypes.object }),
   sosList: PropTypes.arrayOf(PropTypes.object),
   selectedSosId: PropTypes.string,
+  selectedSosOpenKey: PropTypes.number,
   onMarkerClick: PropTypes.func.isRequired,
   teamList: PropTypes.arrayOf(PropTypes.object),
   activeFilter: PropTypes.string,
@@ -125,12 +131,14 @@ RescueMap.propTypes = {
   onTeamDispatched: PropTypes.func,
   onDispatchDenied: PropTypes.func,
   missionComplete: PropTypes.bool,
+  dispatchSosId: PropTypes.string,
 };
 
 RescueMap.defaultProps = {
   mapRef: null,
   sosList: [],
   selectedSosId: null,
+  selectedSosOpenKey: 0,
   teamList: [],
   activeFilter: null,
   dispatchMode: false,
@@ -140,4 +148,5 @@ RescueMap.defaultProps = {
   onTeamDispatched: null,
   onDispatchDenied: null,
   missionComplete: false,
+  dispatchSosId: null,
 };

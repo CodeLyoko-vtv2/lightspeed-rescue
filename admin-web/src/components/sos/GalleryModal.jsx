@@ -1,16 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import PropTypes from 'prop-types';
-import hienTruong3 from '../../assets/img/Hình ảnh hiện trường 3.png';
-import hienTruong1 from '../../assets/img/54ddc68eb94f02fcd6a8bf09441ef511e35c96aa.png';
-
-// Mock gallery items — trong production sẽ lấy từ sos.mediaFiles
-const MOCK_ITEMS = [
-  { id: 1, type: 'image', src: hienTruong1, thumb: hienTruong1 },
-  { id: 2, type: 'video', src: hienTruong3, thumb: hienTruong3, duration: '1:12' },
-  { id: 3, type: 'image', src: hienTruong3, thumb: hienTruong3 },
-  { id: 4, type: 'video', src: hienTruong1, thumb: hienTruong1, duration: '0:48' },
-];
 
 function PlayIcon({ size = 32 }) {
   return (
@@ -46,12 +36,10 @@ function Lightbox({ items, startIndex, onClose }) {
   };
 
   return createPortal(
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       style={lbOverlayStyle}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       onKeyDown={handleKey}
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
       tabIndex={0}
       ref={(el) => el?.focus()}
     >
@@ -78,7 +66,7 @@ function Lightbox({ items, startIndex, onClose }) {
               <PlayIcon size={56} />
               <div style={videoProgressStyle}>
                 <div style={{ flex: 1, height: '3px', background: '#FF0000', borderRadius: '2px', width: '35%' }} />
-                <div style={{ flex: 1, height: '3px', background: 'rgba(255,255,255,0.4)', borderRadius: '2px', flex: '65%' }} />
+                <div style={{ height: '3px', background: 'rgba(255,255,255,0.4)', borderRadius: '2px', flex: '65%' }} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 4px', fontSize: '11px', color: 'white', marginTop: '2px' }}>
                 <span>{item.duration || '0:00'}</span>
@@ -127,7 +115,8 @@ export function GalleryModal({ sos, onClose }) {
 
   const name = sos?.victimName || 'Nạn nhân';
   const phone = formatPhone(sos?.victimPhone || sos?.phone || sos?.phoneNumber);
-  const items = sos?.mediaFiles || MOCK_ITEMS;
+  const items = useMemo(() => normalizeMediaItems(sos), [sos]);
+  const hasItems = items.length > 0;
 
   return createPortal(
     <>
@@ -150,32 +139,36 @@ export function GalleryModal({ sos, onClose }) {
           </div>
 
           {/* Grid */}
-          <div style={gridStyle}>
-            {items.map((item, i) => (
-              <button
-                key={item.id}
-                type="button"
-                style={gridItemStyle}
-                onClick={() => setLightboxIdx(i)}
-                aria-label={`Xem ${item.type === 'video' ? 'video' : 'ảnh'} ${i + 1}`}
-              >
-                <img
-                  src={item.thumb}
-                  alt={`hiện trường ${i + 1}`}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-                {/* Play button overlay for video */}
-                {item.type === 'video' ? (
-                  <div style={thumbOverlayStyle}>
-                    <PlayIcon size={36} />
-                    {item.duration ? (
-                      <span style={durationBadgeStyle}>{item.duration}</span>
-                    ) : null}
-                  </div>
-                ) : null}
-              </button>
-            ))}
-          </div>
+          {hasItems ? (
+            <div style={gridStyle}>
+              {items.map((item, i) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  style={gridItemStyle}
+                  onClick={() => setLightboxIdx(i)}
+                  aria-label={`Xem ${item.type === 'video' ? 'video' : 'ảnh'} ${i + 1}`}
+                >
+                  <img
+                    src={item.thumb}
+                    alt={`hiện trường ${i + 1}`}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  {/* Play button overlay for video */}
+                  {item.type === 'video' ? (
+                    <div style={thumbOverlayStyle}>
+                      <PlayIcon size={36} />
+                      {item.duration ? (
+                        <span style={durationBadgeStyle}>{item.duration}</span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div style={emptyStateStyle}>Chưa có hình ảnh hiện trường.</div>
+          )}
         </div>
       </div>
 
@@ -198,6 +191,54 @@ function formatPhone(phone) {
   if (n.startsWith('+')) return n;
   if (n.startsWith('0')) return `(+84) ${n.slice(1)}`;
   return n;
+}
+
+function normalizeMediaItems(sos) {
+  const topLevel = normalizeMediaList(sos?.mediaUrl || sos?.mediaImages || sos?.mediaFiles);
+  const fromUpdates = Array.isArray(sos?.incidentUpdates)
+    ? sos.incidentUpdates.flatMap((update) => (
+      normalizeMediaList(update?.mediaUrl || update?.mediaImages || update?.mediaFiles)
+    ))
+    : [];
+  const list = uniqueMediaItems([...topLevel, ...fromUpdates]);
+  const items = list
+    .map((item, index) => {
+      if (typeof item === 'string') {
+        return { id: `${index}`, type: 'image', src: item, thumb: item };
+      }
+      if (item && typeof item === 'object') {
+        const src = item.src || item.url || item.thumb;
+        if (!src) return null;
+        return {
+          id: String(item.id || index),
+          type: item.type || 'image',
+          src,
+          thumb: item.thumb || src,
+          duration: item.duration,
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+  return items;
+}
+
+function normalizeMediaList(raw) {
+  if (Array.isArray(raw)) return raw;
+  if (raw) return [raw];
+  return [];
+}
+
+function uniqueMediaItems(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = typeof item === 'string'
+      ? item
+      : item?.src || item?.url || item?.thumb || item?.id || '';
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 GalleryModal.propTypes = {
@@ -249,6 +290,13 @@ const gridStyle = {
   gap: '8px',
   padding: '16px 24px 24px',
   overflowY: 'auto',
+};
+
+const emptyStateStyle = {
+  padding: '28px 24px 32px',
+  textAlign: 'center',
+  color: '#6B7280',
+  fontSize: '14px',
 };
 
 const gridItemStyle = {

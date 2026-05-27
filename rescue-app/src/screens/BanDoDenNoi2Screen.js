@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,11 +9,23 @@ import {
 } from "react-native";
 import {
   useRouter,
-  usePathname,
 } from "expo-router";
 import {
   useMission,
 } from "../context/MissionContext";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { db } from "../../firebaseConfig";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 const { width, height } = Dimensions.get("window");
 
 export default function BanDoDenNoi2Screen() {
@@ -21,6 +33,79 @@ export default function BanDoDenNoi2Screen() {
   setMissionStatus,
 } = useMission();
   const router = useRouter();
+  const [rescuerId, setRescuerId] = useState(null);
+  const [activeSosId, setActiveSosId] = useState(null);
+  const [activeMissionId, setActiveMissionId] = useState(null);
+  const [victimName, setVictimName] = useState("Nạn nhân");
+  const [victimAddress, setVictimAddress] = useState("Chưa có địa chỉ");
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem("rescuerUid").then((storedId) => {
+      if (!storedId) {
+        router.replace("/DangNhap");
+        return;
+      }
+      setRescuerId(storedId);
+    });
+  }, [router]);
+
+  useEffect(() => {
+    if (!rescuerId) return;
+
+    const fetchActiveMission = async () => {
+      const q = query(
+        collection(db, "rescue_missions"),
+        where("rescuerId", "==", rescuerId),
+        where("status", "in", ["accepted", "pending"]),
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const missionDoc = snap.docs[0];
+        const sosId = missionDoc.data()?.sosId || null;
+        setActiveMissionId(missionDoc.id);
+        setActiveSosId(sosId);
+        if (sosId) {
+          const sosSnap = await getDoc(doc(db, "sos_alerts", sosId));
+          if (sosSnap.exists()) {
+            const sos = sosSnap.data();
+            setVictimName(sos?.victimName || sos?.name || "Nạn nhân");
+            setVictimAddress(sos?.address || sos?.locationAddress || formatLocation(sos?.location) || "Chưa có địa chỉ");
+          }
+        }
+      }
+    };
+    fetchActiveMission();
+  }, [rescuerId]);
+
+  const handleCompleteRescue = async () => {
+    if (isCompleting || !activeSosId || !rescuerId) return;
+    try {
+      setIsCompleting(true);
+      await updateDoc(doc(db, "sos_alerts", activeSosId), {
+        status: "completed",
+        completedBy: rescuerId,
+        completedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      if (activeMissionId) {
+        await updateDoc(doc(db, "rescue_missions", activeMissionId), {
+          status: "completed",
+          completedAt: serverTimestamp(),
+        });
+      }
+      await setDoc(doc(db, "Users", rescuerId), {
+        isAvailable: true,
+        lastLocationUpdate: serverTimestamp(),
+      }, { merge: true });
+      setMissionStatus("idle");
+      router.replace("/TrangChu?instant=true");
+    } catch (error) {
+      console.error("Lỗi hoàn tất giải cứu:", error);
+    } finally {
+      setIsCompleting(false);
+    }
+  };
   return (
     <View style={styles.container}>
       {/* MAP */}
@@ -81,7 +166,7 @@ export default function BanDoDenNoi2Screen() {
             </Text>
 
             <Text style={styles.address}>
-              89 Trần Phú, Hải Châu 1, Hải Châu, Đà Nẵng
+              {victimAddress}
             </Text>
 
             <Text style={styles.subText}>
@@ -100,7 +185,7 @@ export default function BanDoDenNoi2Screen() {
         {/* PLACE CARD */}
         <View style={styles.placeCard}>
           <Text style={styles.placeTitle}>
-            Nguyễn Vũ Huy
+            {victimName}
           </Text>
 
           <Text style={styles.placeType}>
@@ -112,17 +197,8 @@ export default function BanDoDenNoi2Screen() {
         <View style={styles.bottomActions}>
           <TouchableOpacity
   style={styles.confirmBtn}
-  onPress={() => {
-
-    setMissionStatus(
-      "accepted"
-    );
-
-    router.push(
-      "/TrangChu?instant=true"
-    );
-
-  }}
+  onPress={handleCompleteRescue}
+  disabled={isCompleting}
 >
             <Image
               source={require("../../assets/icons/icon-confirm.png")}
@@ -159,6 +235,14 @@ export default function BanDoDenNoi2Screen() {
       </View>
     </View>
   );
+}
+
+function formatLocation(location) {
+  if (!location) return "";
+  const lat = location.lat ?? location.latitude;
+  const lng = location.lng ?? location.longitude;
+  if (typeof lat !== "number" || typeof lng !== "number") return "";
+  return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 }
 
 const styles = StyleSheet.create({

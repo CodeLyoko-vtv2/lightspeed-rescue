@@ -1,4 +1,5 @@
 import React from "react";
+import PropTypes from "prop-types";
 
 import {
   View,
@@ -6,22 +7,34 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
+  StatusBar,
 } from "react-native";
 
 import {
   useRouter,
 } from "expo-router";
 
-export default function TopBarMobile() {
+export default function TopBarMobile({ profile }) {
 
   const router = useRouter();
+  const teamName =
+    profile?.fullName ||
+    profile?.name ||
+    profile?.displayName ||
+    "Đội cứu hộ";
+  const phone = formatPhone(
+    profile?.phoneNumber ||
+    profile?.hotline ||
+    profile?.phone,
+  );
+  const locationText = getProfileLocation(profile);
 
   return (
     <View style={styles.container}>
 
       {/* Avatar */}
       <Image
-        source={require("../../../assets/icons/UserIcon.png")}
+        source={require("../../../assets/images/avatar.png")}
         style={styles.avatar}
       />
 
@@ -33,8 +46,8 @@ export default function TopBarMobile() {
           router.push("/BanDo")
         }
       >
-        <Text style={styles.teamText}>
-          Tổ Phản Ứng Nhanh - Y Tế P. Ngũ Hành Sơn (+84) 236 3969 894
+        <Text style={styles.teamText} numberOfLines={2}>
+          {phone ? `${teamName} ${phone}` : teamName}
         </Text>
 
         <View style={styles.locationButton}>
@@ -43,8 +56,8 @@ export default function TopBarMobile() {
             style={styles.locationIcon}
           />
 
-          <Text style={styles.locationText}>
-            582 Lê Văn Hiến, Ngũ Hành Sơn...
+          <Text style={styles.locationText} numberOfLines={1}>
+            {locationText}
           </Text>
         </View>
       </TouchableOpacity>
@@ -81,9 +94,49 @@ export default function TopBarMobile() {
   );
 }
 
+function formatPhone(phone) {
+  if (!phone) return "";
+  const normalized = String(phone).trim();
+  if (normalized.startsWith("+")) return normalized;
+  if (normalized.startsWith("0")) return `+84${normalized.slice(1)}`;
+  return normalized;
+}
+
+function getProfileLocation(profile) {
+  const address =
+    profile?.address ||
+    profile?.locationAddress ||
+    profile?.currentAddress ||
+    profile?.stationAddress;
+  if (address) return shortenText(address, 42);
+
+  const location = profile?.currentLocation || profile?.location;
+  const lat = location?.lat ?? location?.latitude;
+  const lng = location?.lng ?? location?.longitude;
+  if (typeof lat === "number" && typeof lng === "number") {
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  }
+
+  return "Chưa cập nhật vị trí";
+}
+
+function shortenText(value, maxLength) {
+  const text = String(value).trim();
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 3)}...`;
+}
+
+TopBarMobile.propTypes = {
+  profile: PropTypes.object,
+};
+
+TopBarMobile.defaultProps = {
+  profile: null,
+};
+
 const styles = StyleSheet.create({
   container: {
-    height: 74,
+    height: 74 + (StatusBar.currentHeight || 0),
 
     backgroundColor: "#F5F5FA",
 
@@ -91,6 +144,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
 
     paddingHorizontal: 10,
+    paddingTop: StatusBar.currentHeight || 0,
 
     position: "relative",
      zIndex: 999,

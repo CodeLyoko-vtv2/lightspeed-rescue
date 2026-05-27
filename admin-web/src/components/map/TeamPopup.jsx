@@ -1,20 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
+import { addDoc, collection, doc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { firestore } from '../../firebase.js';
 import PropTypes from 'prop-types';
 import { Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 
 /**
- * State machine:
- *   idle → pending (Chờ phản hồi...) → active (Đang thực hiện nhiệm vụ...)
- *        → received (Đã tiếp nhận nhiệm vụ) → update (Cập nhật trạng thái)
- *   Popup CHỈ đóng khi nhận tín hiệu "Nhiệm vụ hoàn thành" từ bên ngoài
+ * State machine for the dispatch popup.
  */
 const S = {
   IDLE:     'idle',
-  PENDING:  'pending',    // "Chờ phản hồi..."
-  ACTIVE:   'active',     // "Đang thực hiện nhiệm vụ..."
-  RECEIVED: 'received',   // "Đã tiếp nhận nhiệm vụ"  (hiện trong popup)
-  UPDATE:   'update',     // "Cập nhật trạng thái"    (sau 3-4s)
+  PENDING:  'pending',
+  ACTIVE:   'active',
+  RECEIVED: 'received',
+  UPDATE:   'update',
 };
 
 const INVISIBLE_ICON = L.divIcon({
@@ -32,51 +31,106 @@ function formatPhone(phone) {
   return n;
 }
 
-export function TeamPopup({ team, position, onClose, onDispatched, onDispatchDenied, missionComplete, canDispatch }) {
+export function TeamPopup({ team, position, sosId, onClose, onDispatched, onDispatchDenied, missionComplete, canDispatch }) {
   const markerRef = useRef(null);
   const [state, setState] = useState(S.IDLE);
+  const [isDispatching, setIsDispatching] = useState(false);
+  const [missionId, setMissionId] = useState(null);
+  const acceptedNotifiedRef = useRef(false);
 
-  /* Mở popup ngay khi render */
+  /* Open popup after marker is rendered. */
   useEffect(() => {
     const t = setTimeout(() => markerRef.current?.openPopup(), 60);
     return () => clearTimeout(t);
   }, [team?.id]);
 
-  /* Khi bên ngoài báo nhiệm vụ hoàn thành → đóng popup */
+  /* Close popup when mission is completed externally. */
   useEffect(() => {
     if (missionComplete) onClose();
   }, [missionComplete, onClose]);
 
-  /* State machine */
-  const handleDispatch = () => {
-    if (state !== S.IDLE) return;
-    setState(S.PENDING);
+  useEffect(() => {
+    if (!missionId) return undefined;
 
-    // Kiểm tra status của đội
-    const isBusy = team.status === 'busy';
+    const unsubscribe = onSnapshot(doc(firestore, 'rescue_missions', missionId), async (snapshot) => {
+      if (!snapshot.exists()) return;
+      const mission = snapshot.data();
 
-    // Sau 2.5s: 
-    setTimeout(() => {
-      if (isBusy) {
-        // Yêu cầu bị từ chối
-        onDispatchDenied?.(team);
-        setState(S.IDLE); // Reset state để có thể thử lại
-      } else {
-        // Chấp nhận
+      if (mission.status === 'accepted' && !acceptedNotifiedRef.current) {
+        acceptedNotifiedRef.current = true;
         setState(S.ACTIVE);
+        setIsDispatching(false);
         onDispatched?.(team);
 
-        // Sau 1s nữa: chuyển RECEIVED
         setTimeout(() => {
           setState(S.RECEIVED);
-
-          // Sau 3.5s nữa: chuyển UPDATE
           setTimeout(() => {
             setState(S.UPDATE);
           }, 3500);
         }, 1000);
       }
-    }, 2500);
+
+      if (mission.status === 'rejected') {
+        const reason = mission.rejectReason || mission.rejectedReason || mission.reason || '';
+        if (sosId) {
+          await updateDoc(doc(firestore, 'sos_alerts', sosId), {
+            status: 'pending',
+            rescuerId: null,
+            dispatchStatus: 'rejected',
+            rejectReason: reason,
+            updatedAt: serverTimestamp(),
+          });
+        }
+        onDispatchDenied?.({ ...team, reason, rejectReason: reason });
+        setMissionId(null);
+        setState(S.IDLE);
+        setIsDispatching(false);
+        acceptedNotifiedRef.current = false;
+      }
+    });
+
+    return () => unsubscribe();
+  }, [missionId, onDispatchDenied, onDispatched, sosId, team]);
+
+  /* State machine */
+  const handleDispatchRescue = async (targetSosId, rescuerId) => {
+    if (!targetSosId) return;
+    await updateDoc(doc(firestore, 'sos_alerts', targetSosId), {
+      rescuerId,
+      dispatchStatus: 'assigned',
+      assignedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    const missionRef = await addDoc(collection(firestore, 'rescue_missions'), {
+      sosId: targetSosId,
+      rescuerId,
+      status: 'pending',
+      assignedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    });
+    setMissionId(missionRef.id);
+    return missionRef.id;
+  };
+
+  const handleDispatch = async () => {
+    if (state !== S.IDLE || isDispatching || !canDispatch) return;
+    setIsDispatching(true);
+    setState(S.PENDING);
+
+    const rescuerId = team?.id;
+    if (!rescuerId) {
+      setState(S.IDLE);
+      setIsDispatching(false);
+      return;
+    }
+    try {
+      acceptedNotifiedRef.current = false;
+      await handleDispatchRescue(sosId, rescuerId);
+    } catch (error) {
+      console.error('Dispatch error:', error);
+      setState(S.IDLE);
+      setIsDispatching(false);
+    }
   };
 
   if (!team || !position) return null;
@@ -84,7 +138,7 @@ export function TeamPopup({ team, position, onClose, onDispatched, onDispatchDen
   const phone = formatPhone(team.phone);
 
   /* Nội dung nút theo từng trạng thái */
-  const isDispatching = state !== S.IDLE;
+  const isDispatchingState = state !== S.IDLE || isDispatching;
 
   const btnLabel = {
     [S.IDLE]:     'Điều động cứu hộ',
@@ -110,8 +164,8 @@ export function TeamPopup({ team, position, onClose, onDispatched, onDispatchDen
         offset={[0, -60]}
       >
         <div style={wrapStyle}>
-          {/* Nút X — chỉ hiện khi chưa điều động */}
-          {!isDispatching && (
+          {/* Nút X chỉ hiện khi chưa điều động */}
+          {!isDispatchingState && (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onClose(); }}
@@ -147,7 +201,7 @@ export function TeamPopup({ team, position, onClose, onDispatched, onDispatchDen
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); handleDispatch(); }}
-            disabled={isDispatching}
+            disabled={isDispatchingState}
             style={{
               width: '100%',
               padding: '8px 16px',
@@ -157,7 +211,7 @@ export function TeamPopup({ team, position, onClose, onDispatched, onDispatchDen
               borderRadius: '6px',
               fontSize: '12px',
               fontWeight: 600,
-              cursor: isDispatching ? 'default' : 'pointer',
+              cursor: isDispatchingState ? 'default' : 'pointer',
               fontFamily: 'Roboto, sans-serif',
               transition: 'background 250ms ease',
               display: 'flex',
@@ -175,7 +229,7 @@ export function TeamPopup({ team, position, onClose, onDispatched, onDispatchDen
   );
 }
 
-/* ── Helper components ── */
+/* Helper components */
 function Spinner() {
   return (
     <span style={{
@@ -203,7 +257,7 @@ function StatusDot({ color }) {
 }
 StatusDot.propTypes = { color: PropTypes.string.isRequired };
 
-/* ── Styles ── */
+/* Styles */
 const wrapStyle = {
   fontFamily: 'Roboto, sans-serif',
   width: '220px',
@@ -233,5 +287,6 @@ TeamPopup.propTypes = {
   onDispatchDenied: PropTypes.func,
   missionComplete: PropTypes.bool,
   canDispatch: PropTypes.bool,
+  sosId: PropTypes.string,
 };
-TeamPopup.defaultProps = { team: null, position: null, onDispatched: null, onDispatchDenied: null, missionComplete: false, canDispatch: true };
+TeamPopup.defaultProps = { team: null, position: null, sosId: null, onDispatched: null, onDispatchDenied: null, missionComplete: false, canDispatch: true };

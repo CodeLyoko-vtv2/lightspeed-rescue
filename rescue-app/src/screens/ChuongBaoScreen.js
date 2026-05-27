@@ -1,5 +1,7 @@
 import React, {
+  useEffect,
   useRef,
+  useState,
 } from "react";
 
 import {
@@ -14,8 +16,25 @@ import {
 
 import { useRouter }
 from "expo-router";
+import {
+  collection,
+  doc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { db } from "../../firebaseConfig";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 export default function ChuongBaoScreen() {
 const router = useRouter();
+  const [activeMissionId, setActiveMissionId] = useState(null);
+  const [activeSosId, setActiveSosId] = useState(null);
+  const [rescuerId, setRescuerId] = useState(null);
+  const activeMissionIdRef = useRef(null);
+  const activeSosIdRef = useRef(null);
+  const rescuerIdRef = useRef(null);
   const slideAnim = useRef(
     new Animated.Value(0)
   ).current;
@@ -52,7 +71,27 @@ const router = useRouter();
               useNativeDriver: false,
             }
           ).start(() => {
-            router.push("/ThongBao");
+            const acceptMission = async () => {
+              if (!rescuerIdRef.current) return;
+
+              if (activeMissionIdRef.current) {
+                await updateDoc(doc(db, "rescue_missions", activeMissionIdRef.current), {
+                  status: "accepted",
+                  acceptedAt: serverTimestamp(),
+                });
+              }
+              if (activeSosIdRef.current) {
+                await updateDoc(doc(db, "sos_alerts", activeSosIdRef.current), {
+                  rescuerId: rescuerIdRef.current,
+                  dispatchStatus: "accepted",
+                  acceptedAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                });
+              }
+            };
+            acceptMission().finally(() => {
+              router.push("/ThongBao");
+            });
           });
         } else {
           Animated.spring(
@@ -66,6 +105,52 @@ const router = useRouter();
       },
     })
   ).current;
+
+  useEffect(() => {
+    rescuerIdRef.current = rescuerId;
+  }, [rescuerId]);
+
+  useEffect(() => {
+    activeMissionIdRef.current = activeMissionId;
+  }, [activeMissionId]);
+
+  useEffect(() => {
+    activeSosIdRef.current = activeSosId;
+  }, [activeSosId]);
+
+  useEffect(() => {
+    AsyncStorage.getItem("rescuerUid").then((storedId) => {
+      if (!storedId) {
+        router.replace("/DangNhap");
+        return;
+      }
+      setRescuerId(storedId);
+    });
+  }, [router]);
+
+  useEffect(() => {
+    if (!rescuerId) return undefined;
+
+    const q = query(
+      collection(db, "rescue_missions"),
+      where("rescuerId", "==", rescuerId),
+      where("status", "==", "pending"),
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
+        setActiveMissionId(null);
+        setActiveSosId(null);
+        return;
+      }
+
+      const missionDoc = snapshot.docs[0];
+      setActiveMissionId(missionDoc.id);
+      setActiveSosId(missionDoc.data()?.sosId || null);
+    });
+
+    return () => unsubscribe();
+  }, [rescuerId]);
 
   return (
     <SafeAreaView style={styles.container}>

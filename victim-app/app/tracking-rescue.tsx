@@ -73,13 +73,13 @@ export default function TrackingRescueScreen() {
     const fetchDataOnce = async () => {
       try {
         const q = query(
-          collection(db, "Dispatches"),
-          where("requestId", "==", requestId),
+          collection(db, "rescue_missions"),
+          where("sosId", "==", requestId),
         );
-        const dispatchSnap = await getDocs(q);
+        const missionSnap = await getDocs(q);
 
-        if (!dispatchSnap.empty) {
-          const teamId = dispatchSnap.docs[0].data().rescueTeamId;
+        if (!missionSnap.empty) {
+          const teamId = missionSnap.docs[0].data().rescuerId;
           const teamDoc = await getDoc(doc(db, "Users", teamId));
 
           if (teamDoc.exists()) {

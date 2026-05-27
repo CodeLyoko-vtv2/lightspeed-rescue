@@ -1,9 +1,28 @@
 import { useEffect, useState } from 'react';
 import { onValue, ref } from 'firebase/database';
-import { db as rtdb } from '../firebase.js';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db as rtdb, firestore } from '../firebase.js';
 
 export function useTeamLocations(sosIds) {
   const [teamLocations, setTeamLocations] = useState({});
+  const [teamProfiles, setTeamProfiles] = useState({});
+
+  useEffect(() => {
+    const q = query(
+      collection(firestore, 'Users'),
+      where('role', '==', 'RESCUE_TEAM'),
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const nextProfiles = {};
+      snapshot.forEach((docSnap) => {
+        nextProfiles[docSnap.id] = { id: docSnap.id, ...docSnap.data() };
+      });
+      setTeamProfiles(nextProfiles);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (!Array.isArray(sosIds) || sosIds.length === 0) {
@@ -35,5 +54,5 @@ export function useTeamLocations(sosIds) {
     };
   }, [sosIds]);
 
-  return { teamLocations };
+  return { teamLocations, teamProfiles };
 }

@@ -35,13 +35,16 @@ export default function TrackingActiveScreen() {
     if (!requestId) return;
 
     const q = query(
-      collection(db, "Dispatches"),
-      where("requestId", "==", requestId),
+      collection(db, "rescue_missions"),
+      where("sosId", "==", requestId),
+      where("status", "in", ["accepted", "pending"]),
     );
-    const unsubDispatch = onSnapshot(q, (snapshot) => {
+    let unsubTeam: (() => void) | null = null;
+    const unsubMission = onSnapshot(q, (snapshot) => {
       if (!snapshot.empty) {
-        const teamId = snapshot.docs[0].data().rescueTeamId;
-        const unsubTeam = onSnapshot(doc(db, "Users", teamId), (teamDoc) => {
+        const teamId = snapshot.docs[0].data().rescuerId;
+        if (unsubTeam) unsubTeam();
+        unsubTeam = onSnapshot(doc(db, "Users", teamId), (teamDoc) => {
           if (teamDoc.exists()) {
             const teamData = teamDoc.data();
             setRescueTeamInfo(teamData);
@@ -51,10 +54,12 @@ export default function TrackingActiveScreen() {
             });
           }
         });
-        return () => unsubTeam();
       }
     });
-    return () => unsubDispatch();
+    return () => {
+      if (unsubTeam) unsubTeam();
+      unsubMission();
+    };
   }, [requestId]);
 
   // ✅ LOGIC 2: THEO DÕI NẠN NHÂN (RULE 10S/LẦN)
@@ -118,17 +123,20 @@ export default function TrackingActiveScreen() {
           try {
             if (!requestId) return;
 
-            await updateDoc(doc(db, "SOS_Requests", requestId as string), {
-              status: "RESOLVED",
+            await updateDoc(doc(db, "sos_alerts", requestId as string), {
+              status: "accepted",
             });
 
-            const q = query(collection(db, "Dispatches"), where("requestId", "==", requestId));
-            const dispatchSnap = await getDocs(q);
-            
-            if (!dispatchSnap.empty) {
-              const dispatchId = dispatchSnap.docs[0].id;
-              await updateDoc(doc(db, "Dispatches", dispatchId), {
-                status: "MET_VICTIM",
+            const q = query(
+              collection(db, "rescue_missions"),
+              where("sosId", "==", requestId),
+            );
+            const missionSnap = await getDocs(q);
+
+            if (!missionSnap.empty) {
+              const missionId = missionSnap.docs[0].id;
+              await updateDoc(doc(db, "rescue_missions", missionId), {
+                status: "accepted",
               });
             }
 
@@ -137,6 +145,7 @@ export default function TrackingActiveScreen() {
               pathname: "/rescue-arrival",
               params: {
                 rescueTeamName: rescueTeamInfo?.fullName || "Đội cứu hộ",
+                requestId: requestId as string,
                 meetingLat: destination.latitude.toString(),
                 meetingLng: destination.longitude.toString(),
               }

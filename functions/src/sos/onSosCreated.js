@@ -59,7 +59,7 @@ const buildNotificationBody = ({ victimName, victimPhone, incidentType }) => {
 
 const onSosCreated = onDocumentCreated(
   {
-    document: "sos_records/{sosId}",
+    document: "sos_alerts/{sosId}",
     region: "asia-southeast1",
     timeoutSeconds: 60,
     memory: "256MiB"
@@ -96,11 +96,13 @@ const onSosCreated = onDocumentCreated(
       const rtdb = getDatabase();
 
       const scoreUpdate = firestore
-        .collection("sos_records")
+        .collection("sos_alerts")
         .doc(sosId)
         .update({
           priorityScore: score,
-          priorityLabel: label
+          priorityLabel: label,
+          aiTriageScore: score,
+          aiTriageLabel: label
         });
 
       const sessionInit = rtdb.ref(`sos_sessions/${sosId}/meta`).set({

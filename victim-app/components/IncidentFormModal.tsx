@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Audio } from "expo-av";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,9 +18,11 @@ import {
   View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getDownloadURL, ref, uploadBytes, getStorage } from "firebase/storage";
 import { styles } from "../constants/(tabs)/home.styles";
 import { COLORS } from "../constants/colors";
 import { eventEmitter } from "../utils/eventEmitter"; 
+import { app } from "../firebaseConfig";
 import { AudioRecordModal } from "./AudioRecordModal";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -30,6 +32,7 @@ interface Props {
   onClose: () => void;
   onReopen: () => void;
   onSubmit: (images: string[], audioUri: string | null) => void;
+  onViewLocation?: () => void;
   incident: any;
   userData: any;
   address: string;
@@ -43,6 +46,7 @@ export const IncidentFormModal = ({
   onClose,
   onReopen,
   onSubmit,
+  onViewLocation,
   incident,
   userData,
   address,
@@ -50,14 +54,17 @@ export const IncidentFormModal = ({
   setDescription,
   loading,
 }: Props) => {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
+  const storage = getStorage(app);
 
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [uploadedImageUrls, setUploadedImageUrls] = useState<string[]>([]);
   const maxModalHeight = SCREEN_HEIGHT - insets.top - 40;
 
   const [isAudioModalVisible, setIsAudioModalVisible] = useState(false);
   const [audioUri, setAudioUri] = useState<string | null>(null);
+  const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [usedCamera, setUsedCamera] = useState(false);
   const [usedGallery, setUsedGallery] = useState(false);
@@ -77,59 +84,128 @@ export const IncidentFormModal = ({
     return () => subscription.remove();
   }, []);
 
-  const handleOpenCamera = () => {
-    Keyboard.dismiss();
-    if (selectedImages.length >= 3) {
-      Alert.alert(
-        "Thông báo",
-        "Hiện trường chỉ cần tối đa 3 ảnh là đủ phân tích rồi ạ.",
-      );
-      return;
-    }
-    onClose();
-    setTimeout(() => {
-      router.push("/camera");
-    }, 300);
+  const uploadFile = async (uri: string, path: string) => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, blob);
+    return await getDownloadURL(storageRef);
   };
 
-  const handleOpenGallery = async () => {
+  const handleUploadImage = async (source: "camera" | "gallery") => {
     Keyboard.dismiss();
-    const remainingSlots = 3 - selectedImages.length;
-    if (remainingSlots <= 0) {
-      Alert.alert(
-        "Thông báo",
-        "Đã đủ 3 ảnh. Vui lòng xóa bớt ảnh cũ trước khi chọn thêm.",
-      );
-      return;
-    }
-
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
+      if (selectedImages.length >= 3) {
         Alert.alert(
-          "Cấp quyền",
-          "Sếp cần cho phép ứng dụng truy cập Thư viện ảnh để dùng chức năng này.",
+          "Thông báo",
+          "Hiện trường chỉ cần tối đa 3 ảnh là đủ phân tích rồi ạ.",
         );
         return;
       }
 
-      let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsMultipleSelection: true,
-        selectionLimit: remainingSlots,
-        quality: 0.7,
-      });
+      const remainingSlots = 3 - selectedImages.length;
+      const permission =
+        source === "camera"
+          ? await ImagePicker.requestCameraPermissionsAsync()
+          : await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (!result.canceled) {
-        const newUris = result.assets.map((asset) => asset.uri);
-        setSelectedImages((prev) => {
-          const combined = [...prev, ...newUris];
-          return combined.slice(0, 3);
-        });
-        setUsedGallery(true); 
+      if (permission.status !== "granted") {
+        Alert.alert(
+          "Cấp quyền",
+          source === "camera"
+            ? "Sếp cần cho phép ứng dụng truy cập Camera để dùng chức năng này."
+            : "Sếp cần cho phép ứng dụng truy cập Thư viện ảnh để dùng chức năng này.",
+        );
+        return;
       }
+
+      const result =
+        source === "camera"
+          ? await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              quality: 0.7,
+            })
+          : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsMultipleSelection: true,
+              selectionLimit: remainingSlots,
+              quality: 0.7,
+            });
+
+      if (result.canceled) return;
+
+      const newUris = result.assets.map((asset) => asset.uri).slice(0, remainingSlots);
+      const uploadedUrls = await Promise.all(
+        newUris.map((uri, index) =>
+          uploadFile(
+            uri,
+            `incident_images/${userData?.uid || "anonymous"}/${Date.now()}_${index}.jpg`,
+          ),
+        ),
+      );
+
+      setSelectedImages((prev) => [...prev, ...newUris].slice(0, 3));
+      setUploadedImageUrls((prev) => [...prev, ...uploadedUrls].slice(0, 3));
+      if (source === "camera") setUsedCamera(true);
+      if (source === "gallery") setUsedGallery(true);
     } catch (error) {
       console.error("Lỗi khi mở bộ sưu tập:", error);
+    }
+  };
+
+  const handleOpenAudio = async () => {
+    Keyboard.dismiss();
+    const permission = await Audio.requestPermissionsAsync();
+    if (permission.status !== "granted") {
+      Alert.alert(
+        "Cấp quyền",
+        "Sếp cần cho phép ứng dụng ghi âm để dùng chức năng này.",
+      );
+      return;
+    }
+    setIsAudioModalVisible(true);
+  };
+
+  const handleUploadAudio = async () => {
+    if (!audioUri) return null;
+    const ext = audioUri.split(".").pop() || "m4a";
+    const audioUrl = await uploadFile(
+      audioUri,
+      `incident_audio/${userData?.uid || "anonymous"}/${Date.now()}.${ext}`,
+    );
+    setUploadedAudioUrl(audioUrl);
+    return audioUrl;
+  };
+
+  const handleSubmitIncident = async () => {
+    if (loading || isSubmitting) return;
+    try {
+      setIsSubmitting(true);
+      const mergedImageUrls = [...uploadedImageUrls];
+      for (let i = 0; i < selectedImages.length; i += 1) {
+        if (!mergedImageUrls[i]) {
+          mergedImageUrls[i] = await uploadFile(
+            selectedImages[i],
+            `incident_images/${userData?.uid || "anonymous"}/${Date.now()}_${i}.jpg`,
+          );
+        }
+      }
+
+      const audioUrl = await handleUploadAudio();
+
+      await onSubmit(mergedImageUrls, audioUrl ?? null);
+
+      setSelectedImages([]);
+      setUploadedImageUrls([]);
+      setAudioUri(null);
+      setUploadedAudioUrl(null);
+      setUsedCamera(false);
+      setUsedGallery(false);
+    } catch (error) {
+      console.error("Lỗi khi gửi thông tin:", error);
+      Alert.alert("Lỗi", "Không thể gửi thông tin. Vui lòng thử lại.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -142,6 +218,7 @@ export const IncidentFormModal = ({
       }
       return newImages;
     });
+    setUploadedImageUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -187,7 +264,12 @@ export const IncidentFormModal = ({
               </View>
 
               <View style={styles.infoCard}>
-                <View style={styles.infoRow}>
+                <TouchableOpacity
+                  style={styles.infoRow}
+                  onPress={onViewLocation}
+                  disabled={!onViewLocation}
+                  activeOpacity={0.7}
+                >
                   <Image
                     source={require("../assets/images/avatar.png")} // ✅ Đã trả lại đường dẫn chuẩn của sếp
                     style={styles.smallAvatar}
@@ -211,7 +293,7 @@ export const IncidentFormModal = ({
                     </View>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color="#CCC" />
-                </View>
+                </TouchableOpacity>
               </View>
 
               {selectedImages.length > 0 && (
@@ -248,7 +330,7 @@ export const IncidentFormModal = ({
                     usedCamera && { borderColor: COLORS.primary, borderWidth: 2 },
                     { position: "relative" }
                   ]}
-                  onPress={handleOpenCamera}
+                  onPress={() => handleUploadImage("camera")}
                 >
                   {usedCamera && (
                     <View style={{ position: "absolute", top: -5, right: -5, backgroundColor: "#FFF", borderRadius: 10, zIndex: 10 }}>
@@ -267,7 +349,7 @@ export const IncidentFormModal = ({
                     usedGallery && { borderColor: COLORS.primary, borderWidth: 2 },
                     { position: "relative" }
                   ]}
-                  onPress={handleOpenGallery}
+                  onPress={() => handleUploadImage("gallery")}
                 >
                   {usedGallery && (
                     <View style={{ position: "absolute", top: -5, right: -5, backgroundColor: "#FFF", borderRadius: 10, zIndex: 10 }}>
@@ -286,10 +368,7 @@ export const IncidentFormModal = ({
                     audioUri && { borderColor: COLORS.primary, borderWidth: 2 },
                     { position: "relative" }, 
                   ]}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    setIsAudioModalVisible(true);
-                  }}
+                  onPress={handleOpenAudio}
                 >
                   {audioUri && (
                     <View style={{ position: "absolute", top: -5, right: -5, backgroundColor: "#FFF", borderRadius: 10, zIndex: 10 }}>
@@ -315,16 +394,11 @@ export const IncidentFormModal = ({
                 style={styles.sendNowButton}
                 onPress={() => {
                   Keyboard.dismiss();
-                  onSubmit(selectedImages, audioUri);
-                  
-                  setSelectedImages([]);
-                  setAudioUri(null); 
-                  setUsedCamera(false);
-                  setUsedGallery(false);
+                  handleSubmitIncident();
                 }}
-                disabled={loading}
+                disabled={loading || isSubmitting}
               >
-                {loading ? (
+                {loading || isSubmitting ? (
                   <ActivityIndicator color="#FFF" />
                 ) : (
                   <Text style={styles.sendNowButtonText}>Gửi thông tin</Text>

@@ -3,6 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
+  Alert,
   TextInput,
   TouchableOpacity,
   SafeAreaView,
@@ -15,29 +16,89 @@ import Svg, {
   Stop,
 } from "react-native-svg";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { auth, db } from "../../firebaseConfig";
 
+const normalizePhone = (value) => {
+  const digits = value.replace(/[^0-9]/g, "");
+  if (digits.startsWith("84")) return `+${digits}`;
+  if (digits.startsWith("0")) return `+84${digits.slice(1)}`;
+  return `+84${digits}`;
+};
+
+const phoneToAuthEmail = (phone) =>
+  `${phone.replace(/[^0-9]/g, "")}@lightspeed-rescue.local`;
 
 
 export default function DangNhapScreen() {
   const [phone, setPhone] = useState("");
 const [password, setPassword] = useState("");
   const router = useRouter();
-const fillPhone = () => {
-  setPhone("0236 3969 894");
-};
 
-const fillPassword = () => {
-  if (phone.trim() === "") return;
-
-  setPassword("12345678");
-};
-const handleLogin = () => {
+const handleLogin = async () => {
   if (phone.trim() === "" || password.trim() === "") {
-    ;
-
+    Alert.alert("Thiếu thông tin", "Vui lòng nhập tài khoản đội cứu hộ.");
     return;
   }
 
+  try {
+    const formattedPhone = normalizePhone(phone);
+    const accountQuery = query(
+      collection(db, "Users"),
+      where("phoneNumber", "==", formattedPhone),
+    );
+    const accountSnap = await getDocs(accountQuery);
+    const rescueDoc = accountSnap.docs.find((item) => {
+      const role = item.data().role;
+      return role === "RESCUE_TEAM" || role === "rescuer";
+    });
+    const authEmail =
+      rescueDoc?.data().authEmail
+        ? rescueDoc.data().authEmail
+        : phoneToAuthEmail(formattedPhone);
+    const credential = await signInWithEmailAndPassword(
+      auth,
+      authEmail,
+      password,
+    );
+    const userSnap = await getDoc(doc(db, "Users", credential.user.uid));
+    const authUserData = userSnap.exists() ? userSnap.data() : null;
+    const authUserRole = authUserData?.role;
+    const accountData = rescueDoc?.data();
+    const userData =
+      authUserRole === "RESCUE_TEAM" || authUserRole === "rescuer"
+        ? authUserData
+        : accountData;
+    const rescuerUid =
+      authUserRole === "RESCUE_TEAM" || authUserRole === "rescuer"
+        ? credential.user.uid
+        : rescueDoc?.id || credential.user.uid;
+    const role = userData?.role;
+
+    if (userData?.disabled || userData?.deletedAt) {
+      await signOut(auth);
+      Alert.alert("Tài khoản đã bị khóa", "Vui lòng liên hệ quản trị hệ thống.");
+      return;
+    }
+
+    if (role !== "RESCUE_TEAM" && role !== "rescuer") {
+      await signOut(auth);
+      Alert.alert("Không đúng quyền", "Tài khoản này không phải đội cứu hộ.");
+      return;
+    }
+
+    await AsyncStorage.setItem("rescuerUid", rescuerUid);
+    await AsyncStorage.setItem("rescuerPhone", userData.phoneNumber || formattedPhone);
+    await AsyncStorage.setItem("rescuerRole", role);
+    router.replace("/TrangChu");
+  } catch (_error) {
+    Alert.alert(
+      "Sai thông tin đăng nhập",
+      "Tài khoản đội cứu hộ không tồn tại hoặc mật khẩu không chính xác.",
+    );
+  }
 };
   return (
     <SafeAreaView style={styles.container}>
@@ -95,42 +156,44 @@ const handleLogin = () => {
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Số điện thoại</Text>
 
-        <TouchableOpacity
+        <View
   style={styles.inputBox}
-  activeOpacity={1}
-  onPress={fillPhone}
 >
   <Text style={styles.prefix}>+84</Text>
 
   <View style={styles.divider} />
 
-  <Text style={[
-  styles.input,
-  !phone && styles.placeholderText
-]}>
-  {phone || "Nhập tại đây..."}
-</Text>
-</TouchableOpacity>
+  <TextInput
+    style={[styles.input, !phone && styles.placeholderText]}
+    value={phone}
+    onChangeText={(value) => setPhone(value.replace(/[^0-9]/g, ""))}
+    keyboardType="phone-pad"
+    placeholder="Nhập tại đây..."
+    placeholderTextColor="rgba(0,0,0,0.3)"
+  />
+</View>
       </View>
 
       {/* Password */}
       <View style={styles.inputContainer}>
         <Text style={styles.label}>Mật khẩu</Text>
 
-        <TouchableOpacity
+        <View
   style={styles.inputBox}
-  activeOpacity={1}
-  onPress={fillPassword}
 >
-          <Text style={[
-  styles.input,
-  !password && styles.placeholderText
-]}>
-  {password
-    ? "••••••••"
-    : "Nhập tại đây..."}
-</Text>
-        </TouchableOpacity>
+          <TextInput
+            style={[styles.input, styles.passwordInput, !password && styles.placeholderText]}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            textContentType="password"
+            autoCapitalize="none"
+            autoCorrect={false}
+            selectionColor="#313A51"
+            placeholder="Nhập tại đây..."
+            placeholderTextColor="rgba(0,0,0,0.3)"
+          />
+        </View>
       </View>
 
       {/* Button */}
@@ -140,17 +203,11 @@ const handleLogin = () => {
     (!phone || !password) && styles.buttonDisabled,
   ]}
   activeOpacity={0.9}
-  onPress={() => {
-    if (!phone || !password) return;
-
-    router.push("/TrangChu");
-  }}
+  onPress={handleLogin}
 >
         <Text style={styles.buttonText}>Đăng nhập</Text>
       </TouchableOpacity>
 
-      {/* Bottom Line */}
-      <View style={styles.bottomBar} />
     </SafeAreaView>
   );
 }
@@ -235,7 +292,13 @@ const styles = StyleSheet.create({
   flex: 1,
   fontSize: 14,
   paddingVertical: 0,
+  color: "#313A51",
 },
+
+  passwordInput: {
+    color: "#111827",
+    includeFontPadding: false,
+  },
 
   button: {
     width: "85%",
@@ -244,7 +307,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 160,
+    marginTop: 90,
   },
 
   buttonText: {
@@ -253,12 +316,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  bottomBar: {
-    position: "absolute",
-    bottom: 20,
-    width: 135,
-    height: 5,
-    borderRadius: 999,
-    backgroundColor: "#313A51",
-  },
 });

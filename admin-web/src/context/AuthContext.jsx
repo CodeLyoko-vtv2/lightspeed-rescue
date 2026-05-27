@@ -1,6 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
-import { onAuthStateChanged, getIdTokenResult } from 'firebase/auth';
+import {
+  browserSessionPersistence,
+  getIdTokenResult,
+  inMemoryPersistence,
+  onAuthStateChanged,
+  setPersistence,
+} from 'firebase/auth';
 import { auth } from '../firebase.js';
 
 const AuthContext = createContext({
@@ -15,6 +21,11 @@ export function AuthProvider({ children }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    setPersistence(auth, inMemoryPersistence).catch((error) => {
+      console.error('Failed to configure auth persistence', error);
+      setPersistence(auth, browserSessionPersistence).catch(() => {});
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
 

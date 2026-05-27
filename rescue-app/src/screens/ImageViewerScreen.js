@@ -19,7 +19,7 @@ export default function ImageViewerScreen() {
 
   const route = useRoute();
 
-const { image } = route.params;
+const { image, imageUrl } = route.params || {};
 
 const images = {
   fire1: require("../../assets/images/fire-1.png"),
@@ -30,6 +30,8 @@ const images = {
 
   fire4: require("../../assets/images/fire-4.png"),
 };
+  const source = imageUrl ? { uri: imageUrl } : images[image];
+
   return (
     <SafeAreaView style={styles.container}>
       {/* TOP BAR */}
@@ -54,11 +56,13 @@ const images = {
       </View>
 
       {/* IMAGE */}
-      <Image
-  source={images[image]}       
-   style={styles.image}
-        resizeMode="cover"
-      />
+      {source ? (
+        <Image
+          source={source}
+          style={styles.image}
+          resizeMode="cover"
+        />
+      ) : null}
     </SafeAreaView>
   );
 }

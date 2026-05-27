@@ -1,9 +1,9 @@
 import React, {
+  useEffect,
   useState,
 } from "react";
 import {
   useRouter,
-  usePathname,
 } from "expo-router";
 import {
   View,
@@ -15,11 +15,95 @@ import {
 
 import TopBarMobile from "../components/navigation/TopBarMobile";
 import NavigationBarMobile from "../components/navigation/NavigationBarMobile";
+import {
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { db } from "../../firebaseConfig";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function ThongBaoScreen() {
     const router = useRouter();
   const [expanded, setExpanded] =
     useState(false);
+  const [activeSos, setActiveSos] = useState(null);
+  const [activeMissionId, setActiveMissionId] = useState(null);
+  const [rescuerId, setRescuerId] = useState(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem("rescuerUid").then((storedId) => {
+      if (!storedId) {
+        router.replace("/DangNhap");
+        return;
+      }
+      setRescuerId(storedId);
+    });
+  }, [router]);
+
+  useEffect(() => {
+    if (!rescuerId) return undefined;
+
+    const q = query(
+      collection(db, "rescue_missions"),
+      where("rescuerId", "==", rescuerId),
+      where("status", "==", "pending"),
+    );
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      if (snapshot.empty) {
+        setActiveSos(null);
+        setActiveMissionId(null);
+        return;
+      }
+
+      const missionDoc = snapshot.docs[0];
+      const missionData = missionDoc.data();
+      setActiveMissionId(missionDoc.id);
+      if (missionData?.sosId) {
+        const sosSnap = await getDoc(doc(db, "sos_alerts", missionData.sosId));
+        if (sosSnap.exists()) {
+          setActiveSos(await hydrateSosWithVictim(sosSnap.id, sosSnap.data()));
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [rescuerId]);
+
+  const incidentDesc = activeSos?.description || "Chưa có mô tả bổ sung";
+  const incidentStatus = activeSos?.incidentName || activeSos?.type || activeSos?.incidentType || "Chưa cập nhật loại sự cố";
+  const incidentRequest = activeSos
+    ? "Lệnh điều động từ Trung tâm cứu hộ."
+    : "Chưa có lệnh điều động mới.";
+
+  const handleViewVictim = async () => {
+    try {
+      if (activeMissionId) {
+        await updateDoc(doc(db, "rescue_missions", activeMissionId), {
+          status: "accepted",
+          acceptedAt: serverTimestamp(),
+        });
+      }
+      if (activeSos?.id) {
+        await updateDoc(doc(db, "sos_alerts", activeSos.id), {
+          rescuerId,
+          dispatchStatus: "accepted",
+          acceptedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+    } catch (error) {
+      console.error("Lỗi cập nhật nhiệm vụ:", error);
+    } finally {
+      router.push("/BanDoDuongDi2");
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -56,9 +140,7 @@ export default function ThongBaoScreen() {
                 <Text
                   style={styles.desc}
                 >
-                  - Có nạn nhân đang
-                  cần hỗ trợ y tế
-                  tại...
+                  - {incidentDesc}
                 </Text>
               )}
 
@@ -82,7 +164,7 @@ export default function ThongBaoScreen() {
       Tình trạng:
     </Text>
   {"  "}
-  Chấn thương, chảy máu chân.
+  {incidentStatus}
 </Text>
 
 <Text style={styles.expandText}>
@@ -90,13 +172,11 @@ export default function ThongBaoScreen() {
       Yêu cầu:
     </Text>
   {"  "}
-  Xuất kích ngay lập tức để hỗ trợ y tế.
+  {incidentRequest}
 </Text>
 
                   <TouchableOpacity
-                  onPress={() =>
-                    router.push("/BanDoDuongDi2")
-                  }>
+                  onPress={handleViewVictim}>
                     <Text
                       style={
                         styles.viewVictim
@@ -179,6 +259,26 @@ export default function ThongBaoScreen() {
       <NavigationBarMobile />
     </SafeAreaView>
   );
+}
+
+async function hydrateSosWithVictim(id, sos) {
+  if (!sos?.victimId) return { id, ...sos };
+
+  try {
+    const userSnap = await getDoc(doc(db, "Users", sos.victimId));
+    const user = userSnap.exists() ? userSnap.data() : null;
+
+    return {
+      id,
+      ...sos,
+      victimName: sos.victimName || sos.name || user?.fullName || user?.displayName || user?.name || "Nạn nhân",
+      victimPhone: sos.victimPhone || sos.phone || sos.phoneNumber || user?.phoneNumber || user?.phone || "",
+      address: sos.address || sos.locationAddress || user?.address || user?.currentAddress || "",
+    };
+  } catch (error) {
+    console.warn("Không thể tải thông tin nạn nhân:", error);
+    return { id, ...sos };
+  }
 }
 
 const styles = StyleSheet.create({

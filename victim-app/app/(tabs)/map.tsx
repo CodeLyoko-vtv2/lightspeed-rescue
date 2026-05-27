@@ -11,14 +11,41 @@ import {
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import * as Location from "expo-location";
-import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { doc, onSnapshot } from "firebase/firestore"; // ✅ Import thêm doc, onSnapshot
+import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore"; // ✅ Import thêm doc, onSnapshot
 import { db } from "../../firebaseConfig"; // ✅ Import db
 import { COLORS } from "../../constants/colors";
 import { styles } from "../../constants/(tabs)/map.styles";
 import { router } from "expo-router";
+
+const Notifications = {
+  addNotificationReceivedListener: (listener: any) => {
+    if (Constants.appOwnership === "expo") {
+      return { remove: () => {} };
+    }
+
+    let subscription: { remove: () => void } | null = null;
+    import("expo-notifications").then((module) => {
+      subscription = module.addNotificationReceivedListener(listener);
+    });
+
+    return {
+      remove: () => subscription?.remove(),
+    };
+  },
+  getPresentedNotificationsAsync: async () => {
+    if (Constants.appOwnership === "expo") return [];
+    const module = await import("expo-notifications");
+    return module.getPresentedNotificationsAsync();
+  },
+  dismissAllNotificationsAsync: async () => {
+    if (Constants.appOwnership === "expo") return;
+    const module = await import("expo-notifications");
+    return module.dismissAllNotificationsAsync();
+  },
+};
 
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
@@ -27,6 +54,7 @@ export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
 
   const [activeRescueId, setActiveRescueId] = useState<string | null>(null);
+  const [rescuerLocation, setRescuerLocation] = useState<any>(null);
 
   // 1. ✅ LẮNG NGHE THÔNG BÁO ĐỂ "MỞ KHÓA" NÚT CHỈ ĐƯỜNG (Tiết kiệm Firebase)
   useEffect(() => {
@@ -62,12 +90,12 @@ export default function MapScreen() {
     if (!activeRescueId) return; // Nếu chưa bật thì không cần nghe ngóng làm gì
 
     // Chỉ cắm ống nghe vào ĐÚNG 1 document này, cực kỳ nhẹ máy
-    const unsub = onSnapshot(doc(db, "SOS_Requests", activeRescueId), (docSnap) => {
+    const unsub = onSnapshot(doc(db, "sos_alerts", activeRescueId), (docSnap) => {
       if (docSnap.exists()) {
         const status = docSnap.data().status;
         
         // Nếu sếp ấn "Hủy SOS" hoặc 2 đội đã "Gặp nhau" (Resolved)
-        if (status === "CANCELLED" || status === "RESOLVED") {
+        if (status === "cancelled" || status === "completed" || status === "resolved") {
           setActiveRescueId(null); // 🔴 Tắt nút ngay lập tức
           Notifications.dismissAllNotificationsAsync(); // 🔴 Dọn dẹp sạch sẽ thông báo trên điện thoại
         }
@@ -75,6 +103,83 @@ export default function MapScreen() {
     });
 
     return () => unsub();
+  }, [activeRescueId]);
+
+  // 2.5. ✅ CẬP NHẬT TỌA ĐỘ SOS LÊN FIRESTORE MỖI 10S
+  useEffect(() => {
+    if (!activeRescueId) return;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const updateSosLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
+        const loc = await Location.getCurrentPositionAsync({});
+        await updateDoc(doc(db, "sos_alerts", activeRescueId), {
+          location: {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          },
+          updatedAt: serverTimestamp(),
+        });
+      } catch (error) {
+        console.error("Lỗi cập nhật vị trí SOS:", error);
+      }
+    };
+
+    updateSosLocation();
+    intervalId = setInterval(updateSosLocation, 10000);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [activeRescueId]);
+
+  // 2.6. ✅ LẮNG NGHE VỊ TRÍ ĐỘI CỨU HỘ THEO rescuerId
+  useEffect(() => {
+    if (!activeRescueId) return;
+    let rescuerUnsub: (() => void) | null = null;
+    let currentRescuerId: string | null = null;
+
+    const sosUnsub = onSnapshot(doc(db, "sos_alerts", activeRescueId), (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      const rescuerId = data?.rescuerId || null;
+
+      if (!rescuerId) {
+        if (rescuerUnsub) rescuerUnsub();
+        rescuerUnsub = null;
+        currentRescuerId = null;
+        setRescuerLocation(null);
+        return;
+      }
+
+      if (currentRescuerId === rescuerId) return;
+      if (rescuerUnsub) rescuerUnsub();
+
+      currentRescuerId = rescuerId;
+      rescuerUnsub = onSnapshot(doc(db, "Users", rescuerId), (rescuerSnap) => {
+        if (!rescuerSnap.exists()) return;
+        const rescuerData = rescuerSnap.data();
+        const loc = rescuerData?.location || rescuerData?.currentLocation;
+        if (loc?.latitude && loc?.longitude) {
+          setRescuerLocation({
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+          });
+        } else if (loc?.lat && loc?.lng) {
+          setRescuerLocation({
+            latitude: loc.lat,
+            longitude: loc.lng,
+          });
+        }
+      });
+    });
+
+    return () => {
+      sosUnsub();
+      if (rescuerUnsub) rescuerUnsub();
+    };
   }, [activeRescueId]);
 
   // 3. THEO DÕI VỊ TRÍ REAL-TIME CỦA BẢN THÂN
@@ -148,6 +253,11 @@ export default function MapScreen() {
               <View style={styles.orangeDotInner} />
             </View>
           </Marker>
+          {rescuerLocation && (
+            <Marker coordinate={rescuerLocation}>
+              <MaterialCommunityIcons name="ambulance" size={32} color={COLORS.primary} />
+            </Marker>
+          )}
         </MapView>
       )}
 

@@ -2,8 +2,8 @@ import PropTypes from 'prop-types';
 import L from 'leaflet';
 import { Marker } from 'react-leaflet';
 
-const SOS_COLOR_DEFAULT = '#FF3A52';
-const SOS_COLOR_SELECTED = '#C62136';
+const SOS_COLOR_DEFAULT = '#E3212D';
+const SOS_COLOR_SELECTED = '#C91824';
 
 export function SosMarker({ sos, isSelected, onClick }) {
   const position = getSosPosition(sos);
@@ -22,44 +22,42 @@ export function SosMarker({ sos, isSelected, onClick }) {
     html: `
       <div style="
         position: relative;
+        width: 140px;
         background: ${bg};
         border: ${border};
-        border-radius: 8px;
-        padding: 6px 10px;
-        min-width: 160px;
-        max-width: 200px;
+        border-radius: 4px;
+        padding: 7px 8px 8px;
         color: #ffffff;
-        font-family: Roboto, sans-serif;
-        font-size: 11px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        white-space: nowrap;
+        font-family: Roboto, Arial, sans-serif;
+        font-size: 10px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.28);
       ">
-        <div style="display:flex;align-items:center;gap:5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;">
+        <div style="display:flex;align-items:center;gap:3px;font-weight:700;overflow:hidden;white-space:nowrap;">
           <span style="overflow:hidden;text-overflow:ellipsis;">${escapeHtml(sos.victimName || 'Nạn nhân')}</span>
-          ${phone ? `<span style="opacity:0.85;font-weight:400;">${escapeHtml(phone)}</span>` : ''}
+          ${phone ? `<span style="opacity:0.95;font-weight:500;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(phone)}</span>` : ''}
         </div>
         ${shortAddress ? `
-        <div style="display:flex;align-items:center;gap:3px;margin-top:2px;opacity:0.9;overflow:hidden;text-overflow:ellipsis;">
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="white" style="flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:4px;margin-top:5px;opacity:0.96;overflow:hidden;white-space:nowrap;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="white" style="flex-shrink:0">
             <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5Z"/>
           </svg>
           <span style="overflow:hidden;text-overflow:ellipsis;">${escapeHtml(shortAddress)}</span>
         </div>` : ''}
         <div style="
           position: absolute;
-          bottom: -7px;
+          bottom: -8px;
           left: 50%;
           transform: translateX(-50%);
           width: 0;
           height: 0;
-          border-left: 7px solid transparent;
-          border-right: 7px solid transparent;
-          border-top: 8px solid ${bg};
+          border-left: 8px solid transparent;
+          border-right: 8px solid transparent;
+          border-top: 9px solid ${bg};
         "></div>
       </div>
     `,
-    iconSize: [200, 52],
-    iconAnchor: [100, 52],   // anchor tại đáy mũi tên (tip chỉ xuống đúng vị trí)
+    iconSize: [140, 54],
+    iconAnchor: [70, 54],
   });
 
   return (

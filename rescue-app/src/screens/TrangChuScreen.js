@@ -2,7 +2,6 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { useNavigation } from "@react-navigation/native";
 import {
   View,
   Image,
@@ -16,8 +15,6 @@ TouchableWithoutFeedback,
 } from "react-native";
 import {
   useRouter,
-  usePathname,
-  useLocalSearchParams,
 } from "expo-router";
 import Animated, {
   Layout,
@@ -31,11 +28,21 @@ import NavigationBarMobile from "../components/navigation/NavigationBarMobile";
 import {
   useMission,
 } from "../context/MissionContext";
+import {
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { db } from "../../firebaseConfig";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function TrangChuScreen() {
   const router = useRouter();
-    const { instant } =
-  useLocalSearchParams();
 const [showRecording, setShowRecording] =
   useState(false);
   const [visible, setVisible] = useState(false);
@@ -49,6 +56,11 @@ const [showRecording, setShowRecording] =
   missionStatus,
   setMissionStatus,
 } = useMission();
+  const [activeMissionId, setActiveMissionId] = useState(null);
+  const [activeSos, setActiveSos] = useState(null);
+  const [isDispatching, setIsDispatching] = useState(false);
+  const [rescuerId, setRescuerId] = useState(null);
+  const [rescuerProfile, setRescuerProfile] = useState(null);
   const resetDispatchCard =
   () => {
 
@@ -81,47 +93,150 @@ const [rejectText,
 const [rejectSuccess,
   setRejectSuccess] =
   useState(false);
+
 useEffect(() => {
+  AsyncStorage.getItem("rescuerUid").then((storedId) => {
+    if (!storedId) {
+      router.replace("/DangNhap");
+      return;
+    }
+    setRescuerId(storedId);
+  });
+}, [router]);
 
-  if (
-    instant === "true"
-  ) {
+  useEffect(() => {
+    if (!rescuerId) return undefined;
 
-    setVisible(true);
+    let mounted = true;
 
-    setExpanded(true);
+    const loadRescuerProfile = async () => {
+      try {
+        const snap = await getDoc(doc(db, "Users", rescuerId));
+        if (!mounted) return;
+        if (snap.exists()) {
+          setRescuerProfile({ id: snap.id, ...snap.data() });
+        }
+      } catch (error) {
+        console.error("Lỗi tải thông tin đội cứu hộ:", error);
+      }
+    };
 
-    return;
-  }
+    loadRescuerProfile();
 
-  const showTimer =
-    setTimeout(() => {
+    return () => {
+      mounted = false;
+    };
+  }, [rescuerId]);
 
-      setVisible(true);
+  useEffect(() => {
+    if (!rescuerId) {
+      return undefined;
+    }
 
-    }, 3000);
+    const q = query(
+      collection(db, "rescue_missions"),
+      where("rescuerId", "==", rescuerId),
+      where("status", "==", "pending"),
+    );
 
-  const expandTimer =
-    setTimeout(() => {
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      if (snapshot.empty) {
+        setActiveMissionId(null);
+        setActiveSos(null);
+        setVisible(false);
+        setExpanded(false);
+        setMissionStatus("idle");
+        return;
+      }
 
-      setExpanded(true);
+      const missionDoc = snapshot.docs[0];
+      const missionData = missionDoc.data();
+      setActiveMissionId(missionDoc.id);
 
-    }, 7000);
+      if (missionData?.sosId) {
+        const sosSnap = await getDoc(doc(db, "sos_alerts", missionData.sosId));
+        if (sosSnap.exists()) {
+          setActiveSos(await hydrateSosWithVictim(sosSnap.id, sosSnap.data()));
+          setVisible(true);
+          setExpanded(true);
+          setMissionStatus("dispatch");
+        }
+      }
+    });
 
-  return () => {
+    return () => unsubscribe();
+  }, [rescuerId, setMissionStatus]);
 
-    clearTimeout(showTimer);
-
-    clearTimeout(expandTimer);
-
+  const handleAcceptMission = async () => {
+    if (!activeMissionId || !activeSos?.id || isDispatching) return;
+    try {
+      setIsDispatching(true);
+      await updateDoc(doc(db, "rescue_missions", activeMissionId), {
+        status: "accepted",
+        acceptedAt: serverTimestamp(),
+      });
+      await updateDoc(doc(db, "sos_alerts", activeSos.id), {
+        rescuerId,
+        dispatchStatus: "accepted",
+        acceptedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      setMissionStatus("onMission");
+      router.push("/KichHoatGiap");
+    } catch (error) {
+      console.error("Lỗi nhận nhiệm vụ:", error);
+    } finally {
+      setIsDispatching(false);
+    }
   };
 
-}, [instant]);
+  const handleRejectMission = async () => {
+    if (!activeMissionId || isDispatching) return;
+    const reason = rejectText?.trim() || selectedReason || "Không thể tiếp nhận nhiệm vụ";
+    try {
+      setIsDispatching(true);
+      await updateDoc(doc(db, "rescue_missions", activeMissionId), {
+        status: "rejected",
+        rejectReason: reason,
+        rejectedReason: reason,
+        rejectedAt: serverTimestamp(),
+      });
+      if (activeSos?.id) {
+        await updateDoc(doc(db, "sos_alerts", activeSos.id), {
+          status: "pending",
+          rescuerId: null,
+          dispatchStatus: "rejected",
+          rejectReason: reason,
+          updatedAt: serverTimestamp(),
+        });
+      }
+      setActiveMissionId(null);
+      setActiveSos(null);
+      setSelectedReason("");
+      setRejectText("");
+      setMissionStatus("idle");
+    } catch (error) {
+      console.error("Lỗi từ chối nhiệm vụ:", error);
+    } finally {
+      setIsDispatching(false);
+    }
+  };
+
+  const victimName = activeSos?.victimName || "Nạn nhân";
+  const victimPhone = activeSos?.victimPhone || activeSos?.phone || activeSos?.phoneNumber || "";
+  const victimAddress =
+    activeSos?.address ||
+    activeSos?.locationAddress ||
+    activeSos?.location?.address ||
+    formatLocation(activeSos?.location) ||
+    "Chưa có địa chỉ";
+  const incidentLabel = activeSos?.incidentName || activeSos?.type || activeSos?.incidentType || "Chưa cập nhật loại sự cố";
+  const incidentDesc = activeSos?.description || "Chưa có mô tả bổ sung";
 
   return (
     <SafeAreaView style={styles.container}>
       {/* TOP BAR */}
-      <TopBarMobile />
+      <TopBarMobile profile={rescuerProfile} />
 
       {/* CONTENT */}
       <View style={styles.content}>
@@ -146,7 +261,7 @@ useEffect(() => {
     </Text>
 
     <Text style={styles.logoSubtitle}>
-      "Tốc độ ánh sáng! Giải cứu!"
+      {'"Tốc độ ánh sáng! Giải cứu!"'}
     </Text>
 
   </View>
@@ -191,7 +306,7 @@ useEffect(() => {
             />
 
             <Text style={styles.nameText}>
-              Nguyễn Vũ Huy
+              {victimName}
             </Text>
           </View>
 
@@ -203,7 +318,7 @@ useEffect(() => {
             />
 
             <Text style={styles.phoneText}>
-              (+84) 373 224 840
+              {victimPhone}
             </Text>
           </View>
 
@@ -215,8 +330,7 @@ useEffect(() => {
             />
 
             <Text style={styles.addressText}>
-              470 Trần Đại Nghĩa, Ngũ Hành Sơn,
-              Đà Nẵng
+              {victimAddress}
             </Text>
           </View>
 
@@ -234,7 +348,7 @@ useEffect(() => {
               
 
                 <Text style={styles.statusText}>
-                  Hỏa hoạn
+                  {incidentLabel}
                 </Text>
               </View>
 
@@ -243,7 +357,7 @@ useEffect(() => {
                 <View style={styles.quoteBar} />
 
                 <Text style={styles.quoteText}>
-                  "Chân tôi bị chảy máu"
+                  {`"${incidentDesc}"`}
                 </Text>
               </View>
 
@@ -298,17 +412,8 @@ onPress={() => setShowRecording(true)}>
 
     <TouchableOpacity
       style={styles.acceptButton}
-      onPress={() => {
-
-  setMissionStatus(
-    "onMission"
-  );
-
-  router.push(
-    "/KichHoatGiap"
-  );
-
-}}
+      onPress={handleAcceptMission}
+      disabled={isDispatching}
     >
       <Text style={styles.acceptText}>
         Nhận nhiệm vụ
@@ -432,6 +537,7 @@ onPress={() => setShowRecording(true)}>
             <TouchableOpacity
               style={styles.sendBtn}
               onPress={() => {
+                handleRejectMission();
                 setRejectSuccess(
                   true
                 );
@@ -515,6 +621,7 @@ onPress={() => setShowRecording(true)}>
     onClose={() =>
       setShowRecording(false)
     }
+    audioUrl={activeSos?.audioUrl || null}
   />
 )}
 {showGallery && (
@@ -522,10 +629,41 @@ onPress={() => setShowRecording(true)}>
     onClose={() =>
       setShowGallery(false)
     }
+    images={activeSos?.mediaUrl || []}
+    victimName={victimName}
+    victimPhone={victimPhone}
   />
 )}
     </SafeAreaView>
   );
+}
+
+async function hydrateSosWithVictim(id, sos) {
+  if (!sos?.victimId) return { id, ...sos };
+
+  try {
+    const userSnap = await getDoc(doc(db, "Users", sos.victimId));
+    const user = userSnap.exists() ? userSnap.data() : null;
+
+    return {
+      id,
+      ...sos,
+      victimName: sos.victimName || sos.name || user?.fullName || user?.displayName || user?.name || "Nạn nhân",
+      victimPhone: sos.victimPhone || sos.phone || sos.phoneNumber || user?.phoneNumber || user?.phone || "",
+      address: sos.address || sos.locationAddress || user?.address || user?.currentAddress || "",
+    };
+  } catch (error) {
+    console.warn("Không thể tải thông tin nạn nhân:", error);
+    return { id, ...sos };
+  }
+}
+
+function formatLocation(location) {
+  if (!location) return "";
+  const lat = location.lat ?? location.latitude;
+  const lng = location.lng ?? location.longitude;
+  if (typeof lat !== "number" || typeof lng !== "number") return "";
+  return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 }
 
 const styles = StyleSheet.create({

@@ -1,15 +1,50 @@
-import React from "react";
-import { View, Text, TouchableOpacity, StatusBar, Image } from "react-native";
+import React, { useState } from "react";
+import { View, Text, TouchableOpacity, StatusBar, Image, Alert } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { db } from "../firebaseConfig";
 import { COLORS } from "../constants/colors";
 import { styles } from "../constants/destination-reached.styles";
 
 export default function DestinationReachedScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { requestId } = useLocalSearchParams();
+  const [isCompleting, setIsCompleting] = useState(false);
+  const handleCompleteRescue = async () => {
+    if (!requestId || isCompleting) {
+      router.push("/(tabs)/map");
+      return;
+    }
+    try {
+      setIsCompleting(true);
+      await updateDoc(doc(db, "sos_alerts", String(requestId)), {
+        status: "completed",
+      });
+
+      const missionQuery = query(
+        collection(db, "rescue_missions"),
+        where("sosId", "==", String(requestId)),
+      );
+      const missionSnap = await getDocs(missionQuery);
+      if (!missionSnap.empty) {
+        await updateDoc(doc(db, "rescue_missions", missionSnap.docs[0].id), {
+          status: "completed",
+          completedAt: serverTimestamp(),
+        });
+      }
+      Alert.alert("Thành công", "Giải cứu thành công!");
+      router.push("/(tabs)/map");
+    } catch (error) {
+      console.error("Lỗi hoàn tất giải cứu:", error);
+      router.push("/(tabs)/map");
+    } finally {
+      setIsCompleting(false);
+    }
+  };
 
   // Tọa độ đích đến: Công an TP Đà Nẵng
   const destination = { 
@@ -75,7 +110,7 @@ export default function DestinationReachedScreen() {
 
         {/* Hàng nút chức năng cuối cùng */}
         <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.actionBtn}>
+          <TouchableOpacity style={styles.actionBtn} onPress={handleCompleteRescue} disabled={isCompleting}>
              <Ionicons name="checkmark-sharp" size={20} color="#FF8852" />
              <Text style={styles.actionBtnText}>Xác nhận</Text>
           </TouchableOpacity>

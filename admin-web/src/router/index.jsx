@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types';
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 import { DashboardPage } from '../pages/DashboardPage.jsx';
+import { AdminTeamsPage } from '../pages/AdminTeamsPage.jsx';
 import { LoginPage } from '../pages/LoginPage.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -34,5 +35,13 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/teams',
+    element: (
+      <ProtectedRoute>
+        <AdminTeamsPage />
+      </ProtectedRoute>
+    ),
   },
 ]);

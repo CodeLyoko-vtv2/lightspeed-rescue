@@ -7,11 +7,20 @@ import PropTypes from 'prop-types';
  *     → updating (Cập nhật trạng thái)  — sau 3.5s
  *     → completed (Nhiệm vụ hoàn thành)  — sau completionDelayMs tổng cộng
  */
-export function DispatchToast({ team, victim, onClose, onMissionComplete, completionDelayMs = 12000 }) {
-  const [phase, setPhase] = useState('dispatched'); // 'dispatched' | 'updating' | 'completed'
+export function DispatchToast({
+  team,
+  victim,
+  onClose,
+  onMissionComplete,
+  completionDelayMs = 12000,
+  initialPhase = 'dispatched',
+  autoProgress = true,
+}) {
+  const [phase, setPhase] = useState(initialPhase); // 'dispatched' | 'updating' | 'completed'
   const [minimized, setMinimized] = useState(false);
 
   useEffect(() => {
+    if (!autoProgress || initialPhase === 'completed') return undefined;
     // Sau 3.5s: chuyển sang "Đối cập nhật trạng thái"
     const t1 = setTimeout(() => setPhase('updating'), 3500);
     // Sau completionDelayMs: "Đã hoàn thành nhiệm vụ"
@@ -20,7 +29,7 @@ export function DispatchToast({ team, victim, onClose, onMissionComplete, comple
       onMissionComplete?.();
     }, completionDelayMs);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [completionDelayMs, onMissionComplete]);
+  }, [autoProgress, completionDelayMs, initialPhase, onMissionComplete]);
 
   const victimName = victim?.victimName || 'nạn nhân';
   const victimPhone = formatPhone(victim?.victimPhone || victim?.phone || '');
@@ -267,5 +276,13 @@ DispatchToast.propTypes = {
   onClose: PropTypes.func.isRequired,
   onMissionComplete: PropTypes.func,
   completionDelayMs: PropTypes.number,
+  initialPhase: PropTypes.oneOf(['dispatched', 'updating', 'completed']),
+  autoProgress: PropTypes.bool,
 };
-DispatchToast.defaultProps = { victim: null, onMissionComplete: null, completionDelayMs: 12000 };
+DispatchToast.defaultProps = {
+  victim: null,
+  onMissionComplete: null,
+  completionDelayMs: 12000,
+  initialPhase: 'dispatched',
+  autoProgress: true,
+};

@@ -23,12 +23,15 @@ import {
 } from "react-native-safe-area-context";
 import { COLORS } from "../../constants/colors";
 
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "../../firebaseConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useAuth } from "../_layout";
+import { auth, db } from "../../firebaseConfig";
 import { styles } from "../../constants/(auth)/register.styles";
-import * as Location from "expo-location";
+
+const phoneToAuthEmail = (phone: string) =>
+  `${phone.replace(/[^0-9]/g, "")}@lightspeed-rescue.local`;
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -61,26 +64,37 @@ export default function RegisterScreen() {
     if (!isFormValid) return;
     setLoading(true);
     try {
-      // ✅ Quét tọa độ thực tế ngay lúc này
-      let location = await Location.getCurrentPositionAsync({});
-
-      await addDoc(collection(db, "Users"), {
-        role: "VICTIM",
+      if (!phone) {
+        Alert.alert("Lỗi", "Thiếu số điện thoại đăng ký.");
+        return;
+      }
+      const formattedPhone = String(phone);
+      const credential = await createUserWithEmailAndPassword(
+        auth,
+        phoneToAuthEmail(formattedPhone),
+        password,
+      );
+      await updateProfile(credential.user, { displayName: fullName.trim() });
+      await setDoc(doc(db, "Users", credential.user.uid), {
+        uid: credential.user.uid,
         fullName: fullName.trim(),
-        phoneNumber: phone,
-        password: password,
-        fcmToken: "real_token_logic_here", // Sẽ xử lý sau với expo-notifications
-        currentLocation: {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        },
-        lastLocationUpdate: serverTimestamp(),
+        phoneNumber: formattedPhone,
+        authEmail: phoneToAuthEmail(formattedPhone),
+        role: "VICTIM",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
-      await AsyncStorage.setItem("userPhone", phone as string);
+      await AsyncStorage.setItem("userPhone", formattedPhone);
+      await AsyncStorage.setItem("userUid", credential.user.uid);
+      await AsyncStorage.setItem("userRole", "VICTIM");
       setAuth(true);
-      Alert.alert("Thành công", "Chào mừng sếp gia nhập đội cứu hộ!");
-    } catch (error) {
-      Alert.alert("Lỗi", "Không thể lưu thông tin.");
+      router.replace("/(tabs)/home");
+    } catch (error: any) {
+      const message =
+        error?.code === "auth/email-already-in-use"
+          ? "Số điện thoại này đã được đăng ký. Vui lòng đăng nhập."
+          : "Không thể tạo tài khoản. Vui lòng thử lại.";
+      Alert.alert("Lỗi đăng ký", message);
     } finally {
       setLoading(false);
     }

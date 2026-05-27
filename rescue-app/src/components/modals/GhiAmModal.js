@@ -1,6 +1,8 @@
 import React, {
+  useEffect,
   useState,
 } from "react";
+import { Audio } from "expo-av";
 import {
   View,
   Text,
@@ -10,13 +12,106 @@ import {
 
 export default function GhiAmModal({
   onClose,
+  audioUrl,
 }) {
-    const [isPaused, setIsPaused] =
-  useState(false);
+  const [sound, setSound] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [durationMillis, setDurationMillis] = useState(0);
+  const [positionMillis, setPositionMillis] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    let loadedSound = null;
+
+    const loadAudio = async () => {
+      setSound(null);
+      setIsPlaying(false);
+      setDurationMillis(0);
+      setPositionMillis(0);
+
+      if (!audioUrl) return;
+
+      try {
+        setIsLoading(true);
+        const { sound: nextSound, status } = await Audio.Sound.createAsync(
+          { uri: audioUrl },
+          { shouldPlay: false },
+        );
+        loadedSound = nextSound;
+
+        nextSound.setOnPlaybackStatusUpdate((nextStatus) => {
+          if (!nextStatus.isLoaded) return;
+          setDurationMillis(nextStatus.durationMillis || 0);
+          setPositionMillis(nextStatus.positionMillis || 0);
+          setIsPlaying(Boolean(nextStatus.isPlaying));
+          if (nextStatus.didJustFinish) {
+            setIsPlaying(false);
+            setPositionMillis(nextStatus.durationMillis || 0);
+          }
+        });
+
+        if (!mounted) {
+          await nextSound.unloadAsync();
+          return;
+        }
+
+        setSound(nextSound);
+        setDurationMillis(status?.durationMillis || 0);
+      } catch (error) {
+        console.error("Lỗi tải ghi âm:", error);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+
+    loadAudio();
+
+    return () => {
+      mounted = false;
+      if (loadedSound) loadedSound.unloadAsync();
+    };
+  }, [audioUrl]);
+
+  const togglePlay = async () => {
+    if (!sound || isLoading) return;
+    try {
+      setIsLoading(true);
+      if (isPlaying) {
+        await sound.pauseAsync();
+        setIsPlaying(false);
+      } else {
+        const status = await sound.getStatusAsync();
+        if (status.isLoaded && status.didJustFinish) {
+          await sound.setPositionAsync(0);
+        }
+        await sound.playAsync();
+        setIsPlaying(true);
+      }
+    } catch (error) {
+      console.error("Lỗi phát ghi âm:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const replayAudio = async () => {
+    if (!sound || isLoading) return;
+    try {
+      setIsLoading(true);
+      await sound.setPositionAsync(0);
+      await sound.playAsync();
+      setIsPlaying(true);
+    } catch (error) {
+      console.error("Lỗi phát lại ghi âm:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <View style={styles.overlay}>
       <View style={styles.container}>
-        {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.title}>
             Ghi âm
@@ -31,9 +126,7 @@ export default function GhiAmModal({
           </TouchableOpacity>
         </View>
 
-        {/* WAVE */}
         <View style={styles.waveWrapper}>
-          {/* LEFT */}
           <View style={styles.waveLeft}>
             {[
               14, 8, 18, 9, 13, 16, 7, 12, 18,
@@ -50,10 +143,8 @@ export default function GhiAmModal({
             ))}
           </View>
 
-          {/* CENTER */}
           <View style={styles.centerLine} />
 
-          {/* RIGHT */}
           <View style={styles.waveRight}>
             {Array.from({ length: 18 }).map(
               (_, index) => (
@@ -66,30 +157,32 @@ export default function GhiAmModal({
           </View>
         </View>
 
-        {/* BOTTOM */}
         <View style={styles.bottomRow}>
           <Text style={styles.timer}>
-            00:10:04
+            {audioUrl ? `${formatMillis(positionMillis)} / ${formatMillis(durationMillis)}` : "Chưa có ghi âm"}
           </Text>
 
           <View style={styles.actions}>
-            {/* Pause */}
             <TouchableOpacity
-  style={styles.pauseButton}
-  onPress={() =>
-    setIsPaused(!isPaused)
-  }
->
-  <Text style={styles.pauseText}>
-    {isPaused
-      ? "▶ Play"
-      : "❚❚ Pause"}
-  </Text>
-</TouchableOpacity>
+              style={[
+                styles.pauseButton,
+                (!audioUrl || isLoading) && styles.disabledButton,
+              ]}
+              onPress={togglePlay}
+              disabled={!audioUrl || isLoading}
+            >
+              <Text style={styles.pauseText}>
+                {isPlaying ? "Pause" : "▶ Play"}
+              </Text>
+            </TouchableOpacity>
 
-            {/* Replay */}
             <TouchableOpacity
-              style={styles.replayButton}
+              style={[
+                styles.replayButton,
+                (!audioUrl || isLoading) && styles.disabledButton,
+              ]}
+              onPress={replayAudio}
+              disabled={!audioUrl || isLoading}
             >
               <Text style={styles.replayText}>
                 ↻ Replay
@@ -100,6 +193,13 @@ export default function GhiAmModal({
       </View>
     </View>
   );
+}
+
+function formatMillis(value) {
+  const totalSeconds = Math.max(0, Math.floor((value || 0) / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 const styles = StyleSheet.create({
@@ -267,5 +367,9 @@ const styles = StyleSheet.create({
 
     fontSize: 10,
     fontWeight: "500",
+  },
+
+  disabledButton: {
+    opacity: 0.45,
   },
 });

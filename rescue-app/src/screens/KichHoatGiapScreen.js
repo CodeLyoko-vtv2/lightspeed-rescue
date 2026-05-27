@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   View,
@@ -10,34 +10,143 @@ import {
 } from "react-native";
 
 import { router } from "expo-router";
-
 import { VideoView, useVideoPlayer } from "expo-video";
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from "expo-speech-recognition";
+
+const ARMOR_WAKE_PHRASE = "BIẾN HÌNH";
 
 export default function KichHoatGiapScreen() {
+  const [isActivated, setIsActivated] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceUnavailable, setVoiceUnavailable] = useState(false);
+  const [lastTranscript, setLastTranscript] = useState("");
+  const restartTimerRef = useRef(null);
+  const scheduleRestartRef = useRef(null);
+  const isActivatedRef = useRef(false);
 
-  // AUTO CHUYỂN SCREEN SAU 3 GIÂY
   useEffect(() => {
-    const timer = setTimeout(() => {
-      router.push("/KichHoatGiapThanhCong"); // đổi path tại đây
-    }, 3000);
+    isActivatedRef.current = isActivated;
+  }, [isActivated]);
 
-    return () => clearTimeout(timer);
+  const clearRestartTimer = useCallback(() => {
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
   }, []);
+
+  const activateArmor = useCallback(() => {
+    if (isActivatedRef.current || voiceUnavailable) return;
+
+    isActivatedRef.current = true;
+    setIsActivated(true);
+    clearRestartTimer();
+    setIsListening(false);
+    stopSpeechSafely();
+    router.replace("/KichHoatGiapThanhCong");
+  }, [clearRestartTimer, voiceUnavailable]);
+
+  const handleSpeechText = useCallback((text) => {
+    if (!text) return;
+    setLastTranscript(text);
+
+    if (containsWakePhrase(text)) {
+      activateArmor();
+    }
+  }, [activateArmor]);
+
+  const startListening = useCallback(async () => {
+    if (isActivatedRef.current || voiceUnavailable) return;
+
+    try {
+      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!permission.granted) {
+        setIsListening(false);
+        setVoiceUnavailable(true);
+        return;
+      }
+
+      if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+        setIsListening(false);
+        setVoiceUnavailable(true);
+        return;
+      }
+
+      ExpoSpeechRecognitionModule.start({
+        lang: "vi-VN",
+        interimResults: true,
+        continuous: false,
+        contextualStrings: [ARMOR_WAKE_PHRASE],
+      });
+      setIsListening(true);
+    } catch (error) {
+      setIsListening(false);
+      if (isNativeVoiceUnavailable(error)) {
+        setVoiceUnavailable(true);
+        return;
+      }
+      scheduleRestartRef.current?.();
+    }
+  }, [voiceUnavailable]);
+
+  const scheduleRestart = useCallback(() => {
+    if (isActivatedRef.current || voiceUnavailable) return;
+    clearRestartTimer();
+    restartTimerRef.current = setTimeout(() => {
+      startListening();
+    }, 500);
+  }, [clearRestartTimer, startListening, voiceUnavailable]);
+
+  useEffect(() => {
+    scheduleRestartRef.current = scheduleRestart;
+  }, [scheduleRestart]);
+
+  useSpeechRecognitionEvent("start", () => {
+    setIsListening(true);
+  });
+
+  useSpeechRecognitionEvent("end", () => {
+    setIsListening(false);
+    scheduleRestartRef.current?.();
+  });
+
+  useSpeechRecognitionEvent("error", (event) => {
+    setIsListening(false);
+    if (event?.error === "not-allowed" || event?.error === "service-not-allowed") {
+      setVoiceUnavailable(true);
+      return;
+    }
+    scheduleRestartRef.current?.();
+  });
+
+  useSpeechRecognitionEvent("result", (event) => {
+    const transcript = event?.results?.map((result) => result?.transcript || "").join(" ") || "";
+    handleSpeechText(transcript);
+  });
+
+  useEffect(() => {
+    startListening();
+
+    return () => {
+      clearRestartTimer();
+      stopSpeechSafely();
+    };
+  }, [clearRestartTimer, startListening]);
 
   const player = useVideoPlayer(
     require("../../assets/images/Bat dau kich hoat.mp4"),
     (player) => {
       player.loop = true;
-
       player.showNowPlayingNotification = false;
-
       player.play();
     }
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* BACKGROUND */}
       <Image
         source={require("../../assets/images/trangchubgr.png")}
         style={styles.backgroundImage}
@@ -45,7 +154,6 @@ export default function KichHoatGiapScreen() {
         blurRadius={2}
       />
 
-      {/* TOP */}
       <View style={styles.topRow}>
         <View style={styles.versionTag}>
           <Text style={styles.versionText}>
@@ -55,7 +163,7 @@ export default function KichHoatGiapScreen() {
 
         <TouchableOpacity
           style={styles.skipButton}
-          onPress={() => router.push("/trangchu")}
+          onPress={() => router.push("/BanDoBatDau")}
         >
           <Text style={styles.skipText}>
             SKIP
@@ -63,9 +171,7 @@ export default function KichHoatGiapScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* VIDEO SECTION */}
       <View style={styles.videoWrapper}>
-        {/* VIDEO */}
         <View style={styles.videoContainer}>
           <View style={styles.videoMask}>
             <VideoView
@@ -79,9 +185,7 @@ export default function KichHoatGiapScreen() {
           </View>
         </View>
 
-        {/* STATUS NODES */}
         <View style={styles.nodesWrapper}>
-          {/* NODE */}
           <View style={styles.node}>
             <Text style={styles.nodeLabel}>
               LÕI NĂNG LƯỢNG
@@ -94,7 +198,6 @@ export default function KichHoatGiapScreen() {
             <View style={styles.nodeGlow} />
           </View>
 
-          {/* NODE */}
           <View style={styles.node}>
             <Text style={styles.nodeLabel}>
               KHÓA AN TOÀN
@@ -107,7 +210,6 @@ export default function KichHoatGiapScreen() {
             <View style={styles.nodeGlow} />
           </View>
 
-          {/* NODE */}
           <View style={styles.node}>
             <Text style={styles.nodeLabel}>
               SINH TRẮC HỌC
@@ -122,7 +224,6 @@ export default function KichHoatGiapScreen() {
         </View>
       </View>
 
-      {/* VOICE ICON */}
       <View style={styles.waveWrapper}>
         <Image
           source={require("../../assets/icons/voice-kichhoat.png")}
@@ -130,19 +231,63 @@ export default function KichHoatGiapScreen() {
         />
       </View>
 
-      {/* LABEL */}
       <Text style={styles.bottomLabel}>
         Hô khẩu lệnh để kích hoạt:
       </Text>
 
-      {/* COMMAND */}
-      <TouchableOpacity style={styles.commandButton}>
+      <View style={styles.commandButton}>
         <Text style={styles.commandText}>
-          "EMERGENCY DEKARANGER"
+          {`"${ARMOR_WAKE_PHRASE}"`}
         </Text>
-      </TouchableOpacity>
+      </View>
+
+      <Text style={styles.listenStatus}>
+        {getListenStatus(isListening, voiceUnavailable)}
+      </Text>
+      {lastTranscript ? (
+        <Text style={styles.transcriptText} numberOfLines={1}>
+          {lastTranscript}
+        </Text>
+      ) : null}
     </SafeAreaView>
   );
+}
+
+function stopSpeechSafely() {
+  try {
+    ExpoSpeechRecognitionModule.abort();
+  } catch {
+    // Ignore when recognizer is already stopped.
+  }
+}
+
+function isNativeVoiceUnavailable(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return message.includes("native")
+    || message.includes("not available")
+    || message.includes("module");
+}
+
+function getListenStatus(isListening, voiceUnavailable) {
+  if (voiceUnavailable) {
+    return "Micro nhận diện cần dev build để hoạt động.";
+  }
+  return isListening ? "Đang lắng nghe khẩu lệnh..." : "Đang khởi động micro...";
+}
+
+function containsWakePhrase(text) {
+  return normalizeSpeechText(text).includes(normalizeSpeechText(ARMOR_WAKE_PHRASE));
+}
+
+function normalizeSpeechText(text) {
+  return String(text || "")
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/Đ/g, "D")
+    .replace(/[^A-Z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 const styles = StyleSheet.create({
@@ -367,5 +512,26 @@ const styles = StyleSheet.create({
 
     fontSize: 22,
     fontWeight: "800",
+  },
+
+  listenStatus: {
+    marginTop: 10,
+
+    color: "#8B8B8B",
+
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  transcriptText: {
+    width: "88%",
+
+    marginTop: 6,
+
+    color: "#313A51",
+
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
   },
 });

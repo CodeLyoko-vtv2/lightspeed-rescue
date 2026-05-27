@@ -5,7 +5,6 @@ const { logger } = require("firebase-functions");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const {
   calculateTriageScore,
-  getLabelText,
   DEFAULT_INCIDENT_TYPE,
   INCIDENT_BASE_SCORES
 } = require("../ai/triageScore");
@@ -147,7 +146,7 @@ const buildAdminMessage = (message) => ({
 
 const onSosUpdated = onDocumentUpdated(
   {
-    document: "sos_records/{sosId}",
+    document: "sos_alerts/{sosId}",
     region: "asia-southeast1",
     timeoutSeconds: 60,
     memory: "256MiB"
@@ -192,9 +191,11 @@ const onSosUpdated = onDocumentUpdated(
         });
 
         tasks.push(
-          firestore.collection("sos_records").doc(sosId).update({
+          firestore.collection("sos_alerts").doc(sosId).update({
             priorityScore: score,
             priorityLabel: label,
+            aiTriageScore: score,
+            aiTriageLabel: label,
             updatedAt: FieldValue.serverTimestamp()
           })
         );

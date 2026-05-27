@@ -51,7 +51,7 @@ export default function NavigationScreen() {
 
   // ✅ THUẬT TOÁN VẼ ĐƯỜNG PHỐ ẢO (City Block Path)
   // Huy chia làm 4 điểm bẻ lái để tạo cảm giác đi qua các khối nhà (blocks)
-  const mockRouteCoordinates = origin ? [
+  const routeCoordinates = origin ? [
     origin, // Điểm bắt đầu
     { latitude: origin.latitude + (destination.latitude - origin.latitude) * 0.3, longitude: origin.longitude },
     { latitude: origin.latitude + (destination.latitude - origin.latitude) * 0.3, longitude: destination.longitude - (destination.longitude - origin.longitude) * 0.5 },
@@ -130,7 +130,7 @@ export default function NavigationScreen() {
           </Marker>
 
           <Polyline
-            coordinates={mockRouteCoordinates}
+            coordinates={routeCoordinates}
             strokeWidth={4}
             strokeColor={COLORS.primary}
             lineDashPattern={[5, 5]} 

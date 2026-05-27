@@ -14,7 +14,7 @@ export function MissionProvider({
   const [
     missionStatus,
     setMissionStatus,
-  ] = useState("dispatch");
+  ] = useState("idle");
 
   /*
     dispatch

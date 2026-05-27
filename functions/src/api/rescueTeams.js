@@ -27,7 +27,6 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { logger } = require("firebase-functions");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getAuth } = require("firebase-admin/auth");
-const crypto = require("crypto");
 
 const REGION_CONFIG = {
   region: "asia-southeast1",
@@ -54,6 +53,26 @@ const INCIDENT_PRIORITY = {
 };
 
 const ADMIN_ROLE = "admin";
+const DEFAULT_RESCUE_PASSWORD = "Rescue@123";
+const DEFAULT_RESCUE_TYPE = "Công an";
+const DEFAULT_BASE_LOCATION = { lat: 16.0544, lng: 108.2022 };
+
+const normalizePhone = (value) => {
+  const digits = String(value || "").replace(/[^0-9]/g, "");
+  if (!digits) {
+    return "";
+  }
+  if (digits.startsWith("84")) {
+    return `+${digits}`;
+  }
+  if (digits.startsWith("0")) {
+    return `+84${digits.slice(1)}`;
+  }
+  return `+84${digits}`;
+};
+
+const phoneToAuthEmail = (phone) =>
+  `${phone.replace(/[^0-9]/g, "")}@lightspeed-rescue.local`;
 
 const assertAuthenticated = (context, functionName, input) => {
   if (!context.auth) {
@@ -97,22 +116,6 @@ const validateBaseLocation = (baseLocation, functionName, input) => {
   return { lat, lng };
 };
 
-const generatePassword = () => {
-  const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const lower = "abcdefghijklmnopqrstuvwxyz";
-  const digits = "0123456789";
-  const all = upper + lower + digits;
-
-  const pick = (chars) => chars[crypto.randomInt(0, chars.length)];
-
-  const result = [pick(upper), pick(lower), pick(digits)];
-  for (let i = result.length; i < 12; i += 1) {
-    result.push(pick(all));
-  }
-
-  return result.sort(() => crypto.randomInt(-1, 2)).join("");
-};
-
 const haversineKm = (from, to) => {
   const toRad = (value) => (value * Math.PI) / 180;
   const earthRadiusKm = 6371;
@@ -151,8 +154,12 @@ const createRescueTeam = onCall(REGION_CONFIG, async (request) => {
   try {
     assertAdmin({ auth }, functionName, data);
 
-    const { name, type, hotline, baseLocation } = data || {};
-    if (!name || !type || !hotline || !baseLocation) {
+    const inputName = data?.fullName || data?.name;
+    const phoneNumber = normalizePhone(data?.phoneNumber || data?.hotline);
+    const type = data?.type || DEFAULT_RESCUE_TYPE;
+    const baseLocation = data?.baseLocation || DEFAULT_BASE_LOCATION;
+
+    if (!inputName || !phoneNumber) {
       logger.warn(`${functionName} missing fields`, { input: data });
       throw new HttpsError("invalid-argument", "Thieu thong tin bat buoc");
     }
@@ -164,36 +171,59 @@ const createRescueTeam = onCall(REGION_CONFIG, async (request) => {
     const teamRef = firestore.collection("rescue_teams").doc();
     const teamId = teamRef.id;
 
-    const email = `${teamId}@rescue.app`;
-    const password = generatePassword();
+    const name = String(inputName).trim();
+    const email = phoneToAuthEmail(phoneNumber);
+    const password = data?.password || DEFAULT_RESCUE_PASSWORD;
 
     await getAuth().createUser({
       uid: teamId,
       email,
+      phoneNumber,
+      displayName: name,
       password,
       disabled: false
     });
 
     await teamRef.set({
       name,
+      fullName: name,
       type,
-      hotline,
+      hotline: phoneNumber,
+      phoneNumber,
+      authEmail: email,
+      role: "RESCUE_TEAM",
       baseLocation: normalizedLocation,
+      currentLocation: normalizedLocation,
       isAvailable: true,
       currentSosId: null,
       fcmToken: null,
-      createdAt: FieldValue.serverTimestamp()
+      createdAt: FieldValue.serverTimestamp(),
+      deletedAt: null
     });
 
     await firestore.collection("users").doc(teamId).set({
       role: "rescuer",
       teamId,
+      phoneNumber,
+      authEmail: email,
+      fullName: name,
+      createdAt: FieldValue.serverTimestamp()
+    });
+
+    await firestore.collection("Users").doc(teamId).set({
+      role: "RESCUE_TEAM",
+      teamId,
+      phoneNumber,
+      authEmail: email,
+      fullName: name,
       createdAt: FieldValue.serverTimestamp()
     });
 
     return {
       teamId,
       email,
+      phoneNumber,
+      fullName: name,
       password,
       success: true
     };
@@ -305,11 +335,11 @@ const deleteRescueTeam = onCall(REGION_CONFIG, async (request) => {
     }
 
     try {
-      await getAuth().updateUser(teamId, { disabled: true });
+      await getAuth().deleteUser(teamId);
     } catch (error) {
       const errorCode = error?.code || error?.errorInfo?.code;
       if (errorCode !== "auth/user-not-found") {
-        logger.warn(`${functionName} disable auth failed`, {
+        logger.warn(`${functionName} delete auth failed`, {
           input: data,
           error: error && error.message ? error.message : String(error)
         });
@@ -320,6 +350,17 @@ const deleteRescueTeam = onCall(REGION_CONFIG, async (request) => {
       isAvailable: false,
       deletedAt: FieldValue.serverTimestamp()
     });
+
+    await Promise.allSettled([
+      firestore.collection("users").doc(teamId).set(
+        { disabled: true, deletedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      ),
+      firestore.collection("Users").doc(teamId).set(
+        { disabled: true, deletedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      )
+    ]);
 
     return { success: true, teamId };
   } catch (error) {

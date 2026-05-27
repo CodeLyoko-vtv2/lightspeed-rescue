@@ -1,15 +1,13 @@
 import PropTypes from 'prop-types';
 
 export function DeniedToast({ team, victim, onClose }) {
-  const victimName = victim?.victimName || 'Nguyễn Vũ Huy';
-  const victimPhone = formatPhone(victim?.victimPhone || victim?.phone || '0373224840');
-  const teamName = team?.name || 'Công an Thành phố Đà Nẵng';
-  // Lấy reason từ team, nếu không có thì để mặc định theo thiết kế
-  const reason = team?.reason || 'Qua xác minh, không có dấu hiệu nguy hiểm tại hiện trường (Báo động giả).';
+  const victimName = victim?.victimName || 'Nạn nhân';
+  const victimPhone = formatPhone(victim?.victimPhone || victim?.phone || victim?.phoneNumber || '');
+  const teamName = team?.name || 'Đội cứu hộ';
+  const reason = team?.reason || team?.rejectReason || team?.rejectedReason || 'Không có lý do từ chối.';
 
   return (
     <div style={cardStyle}>
-      {/* ── Header ── */}
       <div style={headerStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <WarningIcon color="#DC2626" />
@@ -21,9 +19,7 @@ export function DeniedToast({ team, victim, onClose }) {
         </div>
       </div>
 
-      {/* ── Body ── */}
       <div style={bodyStyle}>
-        {/* Status icon */}
         <div style={statusIconWrap}>
           <CloseIcon />
         </div>
@@ -35,8 +31,7 @@ export function DeniedToast({ team, victim, onClose }) {
           <div style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5, marginBottom: '10px' }}>
             <span style={{ fontWeight: 600 }}>{teamName}</span> từ chối nhiệm vụ giải cứu {victimName} {victimPhone ? `(${victimPhone})` : ''}.
           </div>
-          
-          {/* Reason Box */}
+
           <div style={reasonBoxStyle}>
             <span style={{ fontWeight: 600, color: '#B91C1C' }}>Lý do:</span>{' '}
             <span style={{ color: '#B91C1C' }}>{reason}</span>
@@ -48,7 +43,6 @@ export function DeniedToast({ team, victim, onClose }) {
         </div>
       </div>
 
-      {/* ── Actions ── */}
       <div style={footerStyle}>
         <button type="button" style={secBtnStyle} onClick={onClose}>Đóng</button>
         <button type="button" style={primaryBtnStyle}>
@@ -59,7 +53,6 @@ export function DeniedToast({ team, victim, onClose }) {
   );
 }
 
-/* ── Icon helpers ── */
 function WarningIcon({ color }) {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill={color}>
@@ -85,7 +78,6 @@ function formatPhone(phone) {
   return n;
 }
 
-/* ── Styles ── */
 const cardStyle = {
   position: 'absolute',
   bottom: '24px',

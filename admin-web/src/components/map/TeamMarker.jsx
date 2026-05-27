@@ -32,7 +32,7 @@ export function TeamMarker({ team, location, activeFilter, onClick, dispatchMode
   }
 
   // Ẩn marker nếu không khớp filter (áp dụng cả trong và ngoài dispatchMode)
-  if (activeFilter && activeFilter !== team.type) {
+  if (activeFilter && activeFilter !== team.type && !(dispatchMode && team.isLiveRescueApp)) {
     return null;
   }
 
@@ -41,7 +41,7 @@ export function TeamMarker({ team, location, activeFilter, onClick, dispatchMode
     return null;
   }
 
-  const bg = TEAM_COLOR[team.type] || '#1A8C2C';
+  const bg = dispatchMode && team.isLiveRescueApp ? '#16A34A' : TEAM_COLOR[team.type] || '#1A8C2C';
   const phone = formatPhone(team.phone || '');
   const shortAddr = (team.address || '').split(',').slice(0, 2).join(',');
   const shortName = (team.name || 'Đội cứu hộ').length > 22
@@ -105,6 +105,7 @@ TeamMarker.propTypes = {
     phone: PropTypes.string,
     address: PropTypes.string,
     type: PropTypes.string,
+    isLiveRescueApp: PropTypes.bool,
   }).isRequired,
   location: PropTypes.shape({ lat: PropTypes.number, lng: PropTypes.number }),
   activeFilter: PropTypes.string,

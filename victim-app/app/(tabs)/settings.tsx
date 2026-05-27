@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons, Feather } from "@expo/vector-icons";
+import { Ionicons, Feather } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import React, { useState, useCallback } from "react";
 import {
@@ -18,8 +18,10 @@ import { COLORS } from "../../constants/colors";
 import { styles } from "../../constants/(tabs)/settings.styles";
 
 // Firebase
-import { db } from "../../firebaseConfig";
+import { auth, db } from "../../firebaseConfig";
 import { collection, query, where, getDocs } from "firebase/firestore";
+import { signOut } from "firebase/auth";
+import { cancelActiveSosForVictim } from "../../utils/sosLifecycle";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -75,7 +77,15 @@ export default function SettingsScreen() {
         text: "Đăng xuất",
         style: "destructive",
         onPress: async () => {
+          const storedUid = await AsyncStorage.getItem("userUid");
+          const victimId = storedUid || auth.currentUser?.uid;
+          if (victimId) {
+            await cancelActiveSosForVictim(victimId, "victim_logout");
+          }
+          await signOut(auth);
           await AsyncStorage.removeItem("userPhone");
+          await AsyncStorage.removeItem("userUid");
+          await AsyncStorage.removeItem("userRole");
           setAuth(false);
         },
       },

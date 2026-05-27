@@ -16,6 +16,15 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "../../constants/colors";
 import { styles } from "../../constants/(auth)/verify-phone.styles";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "../../firebaseConfig";
+
+const normalizePhone = (value: string) => {
+  const digits = value.replace(/[^0-9]/g, "");
+  if (digits.startsWith("84")) return `+${digits}`;
+  if (digits.startsWith("0")) return `+84${digits.slice(1)}`;
+  return `+84${digits}`;
+};
 
 export default function VerifyPhoneScreen() {
   const router = useRouter();
@@ -50,17 +59,27 @@ export default function VerifyPhoneScreen() {
       return;
     }
     setLoading(true);
-    const formattedPhone = phoneNumber.startsWith("0")
-      ? `+84${phoneNumber.slice(1)}`
-      : `+84${phoneNumber}`;
+    const formattedPhone = normalizePhone(phoneNumber);
 
-    setTimeout(() => {
+    try {
+      const existingUserQuery = query(
+        collection(db, "Users"),
+        where("phoneNumber", "==", formattedPhone),
+      );
+      const existingUserSnap = await getDocs(existingUserQuery);
+      const hasVictimAccount = existingUserSnap.docs.some((item) => {
+        const role = item.data().role;
+        return role === "VICTIM" || role === "victim";
+      });
       setLoading(false);
       router.push({
-        pathname: "/(auth)/otp-verification",
+        pathname: hasVictimAccount ? "/(auth)/login" : "/(auth)/register",
         params: { phone: formattedPhone },
       });
-    }, 1000);
+    } catch (error) {
+      setLoading(false);
+      Alert.alert("Lỗi", "Không thể kiểm tra số điện thoại. Vui lòng thử lại.");
+    }
   };
 
   const isButtonActive = phoneNumber.length >= 9 || isFocused || loading;
@@ -156,7 +175,7 @@ export default function VerifyPhoneScreen() {
                   isButtonActive && styles.actionButtonTextActive,
                 ]}
               >
-                Xác nhận mã OTP
+                Tiếp tục
               </Text>
             )}
           </TouchableOpacity>

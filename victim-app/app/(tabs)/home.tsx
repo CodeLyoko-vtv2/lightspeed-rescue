@@ -1,18 +1,21 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
-import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
   serverTimestamp,
+  Timestamp,
   updateDoc,
   where,
+  arrayUnion,
 } from "firebase/firestore";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -28,29 +31,26 @@ import {
   Text,
   TouchableOpacity,
   View,
+  AppState,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../../constants/(tabs)/home.styles";
 import { COLORS } from "../../constants/colors";
-import { db } from "../../firebaseConfig";
+import { auth, db } from "../../firebaseConfig";
 
 // Components
 import { CountdownModal } from "../../components/CountdownModal";
 import { ExpandableNotification } from "../../components/ExpandableNotification";
 import { IncidentFormModal } from "../../components/IncidentFormModal";
 import { simulateAdminDispatch } from "../../utils/adminSimulator";
+import {
+  cancelActiveSosForVictim,
+  cancelSosRequest,
+  getActiveSosRequests,
+} from "../../utils/sosLifecycle";
+import { useEmergencyWakeWord } from "../../hooks/useEmergencyWakeWord";
 
 const { height } = Dimensions.get("window");
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
 
 const INCIDENTS = [
   {
@@ -100,6 +100,7 @@ const INCIDENTS = [
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const [notificationsApi, setNotificationsApi] = useState<typeof import("expo-notifications") | null>(null);
 
   const [userData, setUserData] = useState({
     uid: "",
@@ -113,6 +114,8 @@ export default function HomeScreen() {
   const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
   const [isRescueAccepted, setIsRescueAccepted] = useState(false);
+  const appStateRef = useRef(AppState.currentState);
+  const skipNextSosCleanupRef = useRef(false);
 
   const [isSuccessModalVisible, setIsSuccessModalVisible] = useState(false);
 
@@ -138,6 +141,97 @@ export default function HomeScreen() {
   const dropAnim = useRef(new Animated.Value(-height)).current;
   const HEADER_HEIGHT = 80 + insets.top;
 
+  const resetSosState = useCallback(() => {
+    setIsSOSActive(false);
+    setCurrentRequestId(null);
+    setSelectedIncident(null);
+    setIsRescueAccepted(false);
+  }, []);
+
+  const cancelOtherActiveSosRequests = useCallback(
+    async (victimId: string, keepRequestId?: string) => {
+      await cancelActiveSosForVictim(
+        victimId,
+        "superseded_by_new_sos",
+        keepRequestId,
+      );
+    },
+    [],
+  );
+
+  const restoreActiveSosForUser = useCallback(
+    async (uid: string) => {
+      const activeRequests = await getActiveSosRequests(uid);
+      if (activeRequests.length === 0) return;
+
+      const latestRequest = activeRequests[0] as any;
+      setCurrentRequestId(latestRequest.id);
+      setSelectedIncident(latestRequest.incidentType ?? null);
+      setIsSOSActive(true);
+      setIsRescueAccepted(latestRequest.status === "accepted");
+      await cancelOtherActiveSosRequests(uid, latestRequest.id);
+    },
+    [cancelOtherActiveSosRequests],
+  );
+
+  const loadVictimUserData = useCallback(async () => {
+    const storedPhone = await AsyncStorage.getItem("userPhone");
+    const storedUid = await AsyncStorage.getItem("userUid");
+    const authUid = auth.currentUser?.uid || "";
+
+    if (storedPhone) {
+      try {
+        const userQuery = query(
+          collection(db, "Users"),
+          where("phoneNumber", "==", storedPhone),
+        );
+        const userSnap = await getDocs(userQuery);
+        if (!userSnap.empty) {
+          const uid = userSnap.docs[0].id;
+          const data = userSnap.docs[0].data();
+          await AsyncStorage.setItem("userUid", uid);
+          await AsyncStorage.setItem("userRole", "VICTIM");
+          setUserData({
+            uid,
+            fullName: data.fullName || "Người dùng",
+            phoneNumber: storedPhone,
+          });
+          await restoreActiveSosForUser(uid);
+          return true;
+        }
+      } catch (error) {
+        console.warn("Khong tim thay user Firebase bang so dien thoai.", error);
+      }
+    }
+
+    const uid = storedUid || authUid;
+    if (!uid) return false;
+
+    try {
+      const userSnap = await getDoc(doc(db, "Users", uid));
+      if (!userSnap.exists()) return false;
+
+      const data = userSnap.data();
+      const phoneNumber = data.phoneNumber || storedPhone || "";
+      await AsyncStorage.setItem("userUid", uid);
+      await AsyncStorage.setItem("userRole", "VICTIM");
+      if (phoneNumber) {
+        await AsyncStorage.setItem("userPhone", phoneNumber);
+      }
+
+      setUserData({
+        uid,
+        fullName: data.fullName || "Người dùng",
+        phoneNumber,
+      });
+      await restoreActiveSosForUser(uid);
+      return true;
+    } catch (error) {
+      console.warn("Khong the khoi phuc thong tin user Firebase.", error);
+      return false;
+    }
+  }, [restoreActiveSosForUser]);
+
   const toggleNotifications = () => {
     const toValue = isNotiVisible ? -height : HEADER_HEIGHT;
     setIsNotiVisible(!isNotiVisible);
@@ -150,10 +244,33 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    (async () => {
+    let mounted = true;
+
+    const setupNotifications = async () => {
+      if (Constants.appOwnership === "expo") return;
+
+      const Notifications = await import("expo-notifications");
+      if (!mounted) return;
+
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+
+      setNotificationsApi(Notifications);
       const { status } = await Notifications.requestPermissionsAsync();
       if (status !== "granted") console.log("Chưa cấp quyền thông báo");
-    })();
+    };
+
+    setupNotifications();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // 1. LẮNG NGHE LỆNH ĐIỀU ĐỘNG TỪ TRUNG TÂM
@@ -164,15 +281,15 @@ export default function HomeScreen() {
     }
 
     const q = query(
-      collection(db, "Dispatches"),
-      where("requestId", "==", currentRequestId),
+      collection(db, "rescue_missions"),
+      where("sosId", "==", currentRequestId),
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       snapshot.docChanges().forEach(async (change) => {
         if (change.type === "added" || change.type === "modified") {
           const dispatchData = change.doc.data();
 
-          if (dispatchData.status === "ACCEPTED" && !isRescueAccepted) {
+          if (dispatchData.status === "accepted" && !isRescueAccepted) {
             setIsRescueAccepted(true);
 
             setNotifications((prev) => {
@@ -191,7 +308,8 @@ export default function HomeScreen() {
               ];
             });
 
-            await Notifications.scheduleNotificationAsync({
+            if (!notificationsApi) return;
+            await notificationsApi.scheduleNotificationAsync({
               content: {
                 title: "Đội cứu hộ đang đến! 🚑",
                 body: "Yêu cầu của bạn đã được tiếp nhận. Hãy giữ bình tĩnh.",
@@ -209,9 +327,9 @@ export default function HomeScreen() {
 
   // 2. RULE 10S: CẬP NHẬT TỌA ĐỘ NẠN NHÂN LÊN FIREBASE (CHẠY NGẦM)
   useEffect(() => {
-    let locationInterval: ReturnType<typeof setInterval>;
+    let locationInterval: ReturnType<typeof setInterval> | null = null;
 
-    if (isSOSActive && userData?.uid) {
+    if (isSOSActive && currentRequestId && userData?.uid) {
       const updateLocationToFirebase = async () => {
         try {
           let loc = await Location.getCurrentPositionAsync({
@@ -224,6 +342,14 @@ export default function HomeScreen() {
               longitude: loc.coords.longitude,
             },
             lastLocationUpdate: serverTimestamp(),
+          });
+
+          await updateDoc(doc(db, "sos_alerts", currentRequestId), {
+            location: {
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            },
+            updatedAt: serverTimestamp(),
           });
 
           console.log(
@@ -242,8 +368,28 @@ export default function HomeScreen() {
       if (locationInterval) {
         clearInterval(locationInterval);
       }
+      if (skipNextSosCleanupRef.current) {
+        skipNextSosCleanupRef.current = false;
+        return;
+      }
+      if (appStateRef.current === "active") {
+        return;
+      }
+      if (currentRequestId) {
+        cancelSosRequest(currentRequestId, "app_unmounted").catch((error) => {
+          console.warn("Khong the tat SOS khi app bi dong:", error);
+        });
+      }
     };
-  }, [isSOSActive, userData.uid]);
+  }, [isSOSActive, userData.uid, currentRequestId]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      appStateRef.current = nextState;
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   // ✅ 3A. BẬT/TẮT TRẠNG THÁI FOCUS KHI CHUYỂN TAB
   useFocusEffect(
@@ -262,6 +408,69 @@ export default function HomeScreen() {
   const [isIncidentModalVisible, setIsIncidentModalVisible] = useState(false);
   const [tempIncident, setTempIncident] = useState<any>(null);
   const [description, setDescription] = useState("");
+  const voiceControlsRef = useRef({
+    startListening: async () => {},
+    stopListening: async () => {},
+    destroy: async () => {},
+  });
+
+  useEffect(() => {
+    if (!isSOSActive) {
+      setTempIncident(null);
+      setDescription("");
+      setIsIncidentModalVisible(false);
+    }
+  }, [isSOSActive]);
+
+  const startAiCountdown = useCallback(
+    (detectedReason: string) => {
+      if (
+        !isScreenFocused ||
+        isSOSActive ||
+        isCountdownVisible ||
+        isIncidentModalVisible
+      ) {
+        return;
+      }
+
+      setAiDetectedName(detectedReason);
+      setSecondsLeft(5);
+      setIsCountdownVisible(true);
+    },
+    [isScreenFocused, isSOSActive, isCountdownVisible, isIncidentModalVisible],
+  );
+
+  const voiceSosEnabled =
+    isScreenFocused &&
+    !isSOSActive &&
+    !isCountdownVisible &&
+    !isIncidentModalVisible;
+
+  const { startListening, stopListening, destroy } = useEmergencyWakeWord({
+    enabled: voiceSosEnabled,
+    onWakeWordDetected: (keyword) => {
+      startAiCountdown(`từ khóa "${keyword}"`);
+    },
+  });
+
+  useEffect(() => {
+    voiceControlsRef.current = {
+      startListening,
+      stopListening,
+      destroy,
+    };
+  }, [destroy, startListening, stopListening]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void voiceControlsRef.current.startListening();
+
+      return () => {
+        const controls = voiceControlsRef.current;
+        void controls.stopListening().finally(controls.destroy);
+      };
+    }, []),
+  );
 
   useEffect(() => {
     let t: ReturnType<typeof setTimeout>;
@@ -269,8 +478,9 @@ export default function HomeScreen() {
 
     const triggerAI = () => {
       // Chỉ bung Modal nếu đang ở Home và chưa kích hoạt các Modal khác
-      if (
-        isScreenFocused &&
+    if (
+      false &&
+      isScreenFocused &&
         !isSOSActive &&
         !isCountdownVisible &&
         !isIncidentModalVisible
@@ -284,6 +494,7 @@ export default function HomeScreen() {
 
     // Chỉ bắt đầu bộ đếm ẩn khi ở trang Home
     if (
+      false &&
       isScreenFocused &&
       !isSOSActive &&
       !isCountdownVisible &&
@@ -324,19 +535,56 @@ export default function HomeScreen() {
   );
 
   const fetchUserData = async () => {
+    const restored = await loadVictimUserData();
+    if (restored) return;
+
     const phone = await AsyncStorage.getItem("userPhone");
     if (phone) {
-      const q = query(
-        collection(db, "Users"),
-        where("phoneNumber", "==", phone),
-      );
-      const snap = await getDocs(q);
-      if (!snap.empty)
-        setUserData({
-          uid: snap.docs[0].id,
-          fullName: snap.docs[0].data().fullName,
-          phoneNumber: phone,
-        });
+      try {
+        const q = query(
+          collection(db, "Users"),
+          where("phoneNumber", "==", phone),
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const uid = snap.docs[0].id;
+          setUserData({
+            uid,
+            fullName: snap.docs[0].data().fullName,
+            phoneNumber: phone,
+          });
+          const activeRequests = await getActiveSosRequests(uid);
+          if (activeRequests.length > 0) {
+            const latestRequest = activeRequests[0] as any;
+            setCurrentRequestId(latestRequest.id);
+            setSelectedIncident(latestRequest.incidentType ?? null);
+            setIsSOSActive(true);
+            setIsRescueAccepted(latestRequest.status === "accepted");
+            await cancelOtherActiveSosRequests(uid, latestRequest.id);
+          }
+          return;
+        }
+      } catch (error) {
+        console.warn("Khong tim thay user Firebase, dung du lieu phien dang nhap.", error);
+      }
+
+      const storedUid = await AsyncStorage.getItem("userUid");
+      if (storedUid) {
+        const activeRequests = await getActiveSosRequests(storedUid);
+        if (activeRequests.length > 0) {
+          const latestRequest = activeRequests[0] as any;
+          setCurrentRequestId(latestRequest.id);
+          setSelectedIncident(latestRequest.incidentType ?? null);
+          setIsSOSActive(true);
+          setIsRescueAccepted(latestRequest.status === "accepted");
+          await cancelOtherActiveSosRequests(storedUid, latestRequest.id);
+        }
+      }
+      setUserData({
+        uid: storedUid || "",
+        fullName: "Người dùng",
+        phoneNumber: phone,
+      });
     }
   };
 
@@ -352,38 +600,60 @@ export default function HomeScreen() {
       setAddress(`${res[0].name || ""}, ${res[0].street || ""}`);
   };
 
-  const handleStartSOS = async () => {
+  const handleSendSOS = async () => {
+    if (loading) return;
     setIsCountdownVisible(false);
-    setIsSOSActive(true);
     setIsRescueAccepted(false);
     try {
       setLoading(true);
-      let loc = await Location.getCurrentPositionAsync({
+      let effectiveUid =
+        userData.uid || auth.currentUser?.uid || (await AsyncStorage.getItem("userUid")) || "";
+      if (!effectiveUid) {
+        await loadVictimUserData();
+        effectiveUid =
+          userData.uid || auth.currentUser?.uid || (await AsyncStorage.getItem("userUid")) || "";
+      }
+      if (!effectiveUid) {
+        Alert.alert("Thiếu thông tin", "Không tìm thấy tài khoản để gửi SOS.");
+        return;
+      }
+
+      await cancelOtherActiveSosRequests(effectiveUid);
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Thiếu quyền", "Vui lòng cấp quyền vị trí để gửi SOS.");
+        return;
+      }
+
+      const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
-      const docRef = await addDoc(collection(db, "SOS_Requests"), {
-        victimId: userData.uid,
-        victimName: userData.fullName,
-        victimPhone: userData.phoneNumber,
-        incidentType: "UNCATEGORIZED",
-        description: "",
+
+      const docRef = await addDoc(collection(db, "sos_alerts"), {
+        victimId: effectiveUid,
+        status: "pending",
         location: {
           latitude: loc.coords.latitude,
           longitude: loc.coords.longitude,
         },
-        mediaImages: [],
-        audioRecordings: [],
-        priorityScore: 0,
-        status: "ACTIVE",
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
+
       setCurrentRequestId(docRef.id);
+      setIsSOSActive(true);
       setTimeout(() => simulateAdminDispatch(docRef.id), 10000);
     } catch (e) {
       console.error(e);
+      resetSosState();
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleStartSOS = async () => {
+    await handleSendSOS();
   };
 
   const handleCancelSOS = () => {
@@ -393,14 +663,11 @@ export default function HomeScreen() {
         text: "Đồng ý",
         style: "destructive",
         onPress: async () => {
-          if (currentRequestId)
-            await updateDoc(doc(db, "SOS_Requests", currentRequestId), {
-              status: "CANCELLED",
-            });
-          setIsSOSActive(false);
-          setCurrentRequestId(null);
-          setSelectedIncident(null);
-          setIsRescueAccepted(false);
+          if (currentRequestId) {
+            skipNextSosCleanupRef.current = true;
+            await cancelSosRequest(currentRequestId, "victim_cancelled");
+          }
+          resetSosState();
         },
       },
     ]);
@@ -413,11 +680,34 @@ export default function HomeScreen() {
     if (!currentRequestId || !tempIncident) return;
     try {
       setLoading(true);
-      await updateDoc(doc(db, "SOS_Requests", currentRequestId), {
+      const trimmedDescription = description.trim();
+      const updatePayload = {
         incidentType: tempIncident.id,
-        description,
-      });
+        incidentName: tempIncident.name ?? tempIncident.id,
+        description: trimmedDescription,
+        mediaUrl: images,
+        audioUrl: audioUri,
+        createdAt: Timestamp.now(),
+      };
+      const updateData: Record<string, any> = {
+        incidentType: tempIncident.id,
+        description: trimmedDescription,
+        incidentUpdates: arrayUnion(updatePayload),
+        detailsSubmitted: true,
+        hasMedia: images.length > 0,
+        hasAudio: Boolean(audioUri),
+        updatedAt: serverTimestamp(),
+      };
+      if (images.length > 0) {
+        updateData.mediaUrl = arrayUnion(...images);
+      }
+      if (audioUri) {
+        updateData.audioRecordings = arrayUnion(audioUri);
+        updateData.audioUrl = audioUri;
+      }
+      await updateDoc(doc(db, "sos_alerts", currentRequestId), updateData);
       setSelectedIncident(tempIncident.id);
+      setDescription("");
       setIsIncidentModalVisible(false);
 
       setTimeout(() => {
@@ -430,18 +720,21 @@ export default function HomeScreen() {
     }
   };
 
+  const handleViewLocation = () => {
+    setIsIncidentModalVisible(false);
+    router.push("/(tabs)/map");
+  };
+
   // 4. TỰ ĐỘNG TẮT VÒNG LẶP ĐỊNH VỊ Ở HOME KHI ĐÃ GẶP NHAU (RESOLVED)
   useEffect(() => {
     if (!currentRequestId) return;
 
     const unsub = onSnapshot(
-      doc(db, "SOS_Requests", currentRequestId),
+      doc(db, "sos_alerts", currentRequestId),
       (docSnap) => {
-        if (docSnap.exists() && docSnap.data().status === "RESOLVED") {
-          setIsSOSActive(false);
-          setCurrentRequestId(null);
-          setSelectedIncident(null);
-          setIsRescueAccepted(false);
+        if (docSnap.exists() && docSnap.data().status === "completed") {
+          skipNextSosCleanupRef.current = true;
+          resetSosState();
         }
       },
     );
@@ -577,7 +870,7 @@ export default function HomeScreen() {
             <View style={styles.sosContainer}>
               <TouchableOpacity
                 style={styles.sosButtonWrapper}
-                onPress={handleStartSOS}
+                onPress={handleSendSOS}
               >
                 <Image
                   source={require("../../assets/images/sos-button.png")}
@@ -667,6 +960,7 @@ export default function HomeScreen() {
       />
 
       <IncidentFormModal
+        key={currentRequestId ?? "incident-idle"}
         visible={isIncidentModalVisible}
         onClose={() => setIsIncidentModalVisible(false)}
         onSubmit={handleSubmitInfo}
@@ -677,6 +971,7 @@ export default function HomeScreen() {
         setDescription={setDescription}
         loading={loading}
         onReopen={() => setIsIncidentModalVisible(true)}
+        onViewLocation={handleViewLocation}
       />
 
       <Modal visible={isSuccessModalVisible} transparent animationType="fade">

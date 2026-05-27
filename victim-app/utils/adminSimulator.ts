@@ -18,9 +18,10 @@ export const simulateAdminDispatch = async (currentRequestId: string | null) => 
   if (!currentRequestId) return; // Chạy ngầm nên nếu lỗi thì im lặng thoát luôn
 
   try {
-    const sosRef = doc(db, "SOS_Requests", currentRequestId);
+    const sosRef = doc(db, "sos_alerts", currentRequestId);
     const sosSnap = await getDoc(sosRef);
     if (!sosSnap.exists()) return;
+    if (sosSnap.data().status !== "pending") return;
     const sosLocation = sosSnap.data().location;
 
     const q = query(
@@ -65,13 +66,16 @@ export const simulateAdminDispatch = async (currentRequestId: string | null) => 
     }
 
     // Tạo lệnh điều động (Dispatch) với trạng thái ACCEPTED
-    await addDoc(collection(db, "Dispatches"), {
+    await addDoc(collection(db, "rescue_missions"), {
       dispatchId: `DISP_SIM_${Date.now()}`,
       requestId: currentRequestId,
       rescueTeamId: closestTeamId,
-      status: "ACCEPTED", 
+      sosId: currentRequestId,
+      rescuerId: closestTeamId,
+      status: "accepted",
+      createdAt: serverTimestamp(),
       dispatchedAt: serverTimestamp(),
-      respondedAt: serverTimestamp()
+      respondedAt: serverTimestamp(),
     });
 
     // Cập nhật đội cứu hộ thành "Đang bận"

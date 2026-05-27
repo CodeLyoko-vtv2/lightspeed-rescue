@@ -6,55 +6,36 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
+  ScrollView,
 } from "react-native";
-import { useRouter }
-from "expo-router";
+import { useRouter } from "expo-router";
+
 export default function BoSuuTapModal({
   onClose,
+  images,
+  victimName,
+  victimPhone,
 }) {
-const router = useRouter();
-  const images = [
-  {
-    id: "fire1",
-    source: require("../../../assets/images/fire-1.png"),
-  },
-  {
-    id: "fire2",
-    source: require("../../../assets/images/fire-2.png"),
-  },
-
-  null,
-
-  {
-    id: "fire3",
-    source: require("../../../assets/images/fire-3.png"),
-  },
-  {
-    id: "fire4",
-    source: require("../../../assets/images/fire-4.png"),
-  },
-
-  null,
-  null,
-  null,
-];
+  const router = useRouter();
+  const mediaItems = normalizeImages(images);
 
   return (
     <View style={styles.overlay}>
       <View style={styles.container}>
-        {/* HEADER */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerText}>
             <Text style={styles.title}>
               Bộ sưu tập hiện trường
             </Text>
 
             <Text style={styles.name}>
-              Nguyễn Vũ Huy
-              <Text style={styles.phone}>
-                {" "}
-                · (+84) 373 224 840
-              </Text>
+              {victimName || "Nạn nhân"}
+              {victimPhone ? (
+                <Text style={styles.phone}>
+                  {" "}
+                  · {victimPhone}
+                </Text>
+              ) : null}
             </Text>
           </View>
 
@@ -68,63 +49,66 @@ const router = useRouter();
           </TouchableOpacity>
         </View>
 
-        {/* GRID */}
-        <View style={styles.grid}>
-          {images.map((item, index) => (
-            <TouchableOpacity
-  key={index}
-  style={styles.imageBox}
- onPress={() => {
-  if (!item?.source) return;
-
-  // VIDEO
-  if (item.id === "fire2") {
-    router.push("/VideoViewer");
-    return;
-  }
-
-  // IMAGE
-  router.push({
-    pathname: "/ImageViewer",
-    params: {
-      image: item.id,
-    },
-  });
-}}
->
-              {item && (
-                <>
-                  <Image
-                     source={item.source}
-                    style={styles.image}
-                  />
-
-                  {(index === 1 ||
-                    index === 4) && (
-                    <View
-                      style={
-                        styles.timeWrapper
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.timeText
-                        }
-                      >
-                        {index === 1
-                          ? "0:45"
-                          : "1:12"}
-                      </Text>
-                    </View>
-                  )}
-                </>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
+        {mediaItems.length > 0 ? (
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.grid}
+            showsVerticalScrollIndicator={false}
+          >
+            {mediaItems.map((item, index) => (
+              <TouchableOpacity
+                key={item.id}
+                style={[
+                  styles.imageBox,
+                  index % 2 === 0 && styles.leftImageBox,
+                ]}
+                activeOpacity={0.88}
+                onPress={() => {
+                  router.push({
+                    pathname: "/ImageViewer",
+                    params: {
+                      imageUrl: item.url,
+                    },
+                  });
+                }}
+              >
+                <Image
+                  source={{ uri: item.url }}
+                  style={styles.image}
+                  resizeMode="cover"
+                />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>
+              Chưa có hình ảnh hiện trường.
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
+}
+
+function normalizeImages(images) {
+  if (!Array.isArray(images)) return [];
+
+  return images
+    .map((item, index) => {
+      if (typeof item === "string" && item.trim()) {
+        return { id: `image_${index}`, url: item.trim() };
+      }
+
+      if (item?.url) {
+        return { id: item.id || `image_${index}`, url: item.url };
+      }
+
+      return null;
+    })
+    .filter(Boolean)
+    .slice(0, 12);
 }
 
 const styles = StyleSheet.create({
@@ -145,6 +129,7 @@ const styles = StyleSheet.create({
 
   container: {
     width: "88%",
+    maxHeight: "72%",
 
     backgroundColor: "#FFF",
 
@@ -152,14 +137,20 @@ const styles = StyleSheet.create({
 
     paddingTop: 18,
     paddingHorizontal: 14,
-    paddingBottom: 22,
+    paddingBottom: 18,
   },
 
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
 
     marginBottom: 18,
+  },
+
+  headerText: {
+    flex: 1,
+    paddingRight: 12,
   },
 
   title: {
@@ -185,8 +176,8 @@ const styles = StyleSheet.create({
   },
 
   closeButton: {
-    width: 26,
-    height: 26,
+    width: 34,
+    height: 34,
 
     borderRadius: 999,
 
@@ -199,28 +190,36 @@ const styles = StyleSheet.create({
   closeText: {
     color: "#7B7B7B",
 
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: "700",
+  },
+
+  scroll: {
+    maxHeight: 360,
   },
 
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
 
-    justifyContent: "space-between",
+    paddingBottom: 2,
   },
 
   imageBox: {
-    width: "31%",
+    width: "48%",
     aspectRatio: 1,
 
-    borderRadius: 10,
+    borderRadius: 12,
 
     backgroundColor: "#EAEAF0",
 
-    marginBottom: 10,
+    marginBottom: 12,
 
     overflow: "hidden",
+  },
+
+  leftImageBox: {
+    marginRight: "4%",
   },
 
   image: {
@@ -228,25 +227,24 @@ const styles = StyleSheet.create({
     height: "100%",
   },
 
-  timeWrapper: {
-    position: "absolute",
+  emptyState: {
+    width: "100%",
+    minHeight: 132,
 
-    right: 4,
-    bottom: 4,
+    borderRadius: 14,
 
-    backgroundColor:
-      "rgba(0,0,0,0.72)",
+    backgroundColor: "#F5F5F8",
 
-    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
 
-    paddingHorizontal: 5,
-    paddingVertical: 2,
+    paddingHorizontal: 16,
   },
 
-  timeText: {
-    color: "#FFF",
+  emptyText: {
+    color: "#8B8B8B",
 
-    fontSize: 9,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "500",
   },
 });

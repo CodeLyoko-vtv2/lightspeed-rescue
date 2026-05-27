@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { collection, getDocs, query, where } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,6 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { styles } from "../../constants/(auth)/otp-verification.styles";
 import { COLORS } from "../../constants/colors";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../../firebaseConfig";
 
 export default function OTPVerificationScreen() {
@@ -62,21 +62,19 @@ export default function OTPVerificationScreen() {
   };
 
   const handleVerifyOTP = async () => {
-    if (otp.length < 4) return;
-    if (otp !== "1234") {
-      Alert.alert("Lỗi xác thực", "Mã OTP không chính xác. Vui lòng thử lại.");
-      setOtp("");
-      return;
-    }
-
     setLoading(true);
     try {
-      const usersRef = collection(db, "Users");
-      const q = query(usersRef, where("phoneNumber", "==", phone));
-      const querySnapshot = await getDocs(q);
+      const existingUserQuery = query(
+        collection(db, "Users"),
+        where("phoneNumber", "==", phone),
+      );
+      const existingUserSnap = await getDocs(existingUserQuery);
+      const hasAccount = existingUserSnap.docs.some((item) => {
+        const role = item.data().role;
+        return role === "VICTIM" || role === "victim";
+      });
 
-      if (!querySnapshot.empty) {
-        // Đã có tài khoản thì đẩy sang Login (truyền kèm phone để pre-fill)
+      if (phone && hasAccount) {
         router.replace({ pathname: "/(auth)/login", params: { phone } });
       } else {
         router.replace({ pathname: "/(auth)/register", params: { phone } });

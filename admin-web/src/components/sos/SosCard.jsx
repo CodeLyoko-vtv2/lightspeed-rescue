@@ -1,71 +1,18 @@
 import PropTypes from 'prop-types';
 import micIcon from '../../assets/img/fluent_mic-record-24-regular.svg';
-import fireIcon from '../../assets/img/mdi_fire-station.svg';
-
-/* ── Incident badge config ── */
-const INCIDENT_META = {
-  fire:             { label: 'Hỏa hoạn', icon: fireIcon },
-  accident:         { label: 'Tai nạn',  icon: null },
-  flood:            { label: 'Đuối nước',icon: null },
-  natural_disaster: { label: 'Động đất', icon: null },
-  earthquake:       { label: 'Động đất', icon: null },
-};
-
-/* Gallery SVG icon inline */
-function GalleryIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      <rect x="3" y="3" width="18" height="18" rx="2.5" stroke="#FF8852" strokeWidth="1.6"/>
-      <circle cx="8.5" cy="8.5" r="1.5" fill="#FF8852"/>
-      <path d="M3 15.5l5.5-5 4 4 3-3 5 5" stroke="#FF8852" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-}
-
-/* Inline person/earthquake icon */
-function EarthquakeIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="#7C3AED">
-      <circle cx="12" cy="4" r="2"/>
-      <path d="M12 7c-1.5 0-3 .7-4 2l-2 3h3l1 4h4l1-4h3l-2-3c-1-1.3-2.5-2-4-2z"/>
-      <path d="M9 17l1 4h4l1-4" stroke="#7C3AED" strokeWidth="0.5"/>
-    </svg>
-  );
-}
-
-function AccidentIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="#FF8852">
-      <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
-    </svg>
-  );
-}
-
-function FloodIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="#006FD6">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-.5-13H13v6l5.25 3.15-.75 1.23L11.5 14V7z"/>
-    </svg>
-  );
-}
-
-const INCIDENT_ICON_COMPONENT = {
-  fire: () => <img src={fireIcon} alt="" style={{ width: '20px', height: '20px' }} />,
-  accident: AccidentIcon,
-  flood: FloodIcon,
-  natural_disaster: EarthquakeIcon,
-  earthquake: EarthquakeIcon,
-};
+import { IncidentBadge } from './IncidentMeta.jsx';
+import { getIncidentMeta } from './incidentMeta.js';
 
 export function SosCard({ sos, isSelected, onClick, cardRef, onVoiceRecord, onGallery }) {
-  const meta = INCIDENT_META[sos.incidentType];
-  const IconComp = INCIDENT_ICON_COMPONENT[sos.incidentType] || null;
+  const incidentKey = String(sos.incidentType || '').toUpperCase();
+  const incident = getIncidentMeta(incidentKey, sos);
   const phone = formatPhone(sos.victimPhone || sos.phone || sos.phoneNumber);
   const address = getSosAddress(sos);
   const description = sos.description || '';
-  const hasAudio = !!sos.hasAudio;
-  const hasMedia = !!sos.hasMedia;
-  const showButtons = hasAudio || hasMedia;
+  const audioUrls = getAudioUrls(sos);
+  const mediaUrls = getMediaUrls(sos);
+  const hasAudio = Boolean(sos.hasAudio || audioUrls.length > 0 || sos.audioRecordings?.length);
+  const hasMedia = Boolean(sos.hasMedia || mediaUrls.length > 0 || sos.mediaImages?.length);
 
   return (
     <div
@@ -73,63 +20,48 @@ export function SosCard({ sos, isSelected, onClick, cardRef, onVoiceRecord, onGa
       role="button"
       tabIndex={0}
       onClick={() => onClick(sos)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(sos); }
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick(sos);
+        }
       }}
       className={`sos-card${isSelected ? ' is-selected' : ''}`}
       style={{
-        padding: '12px 16px',
-        borderBottom: '1px solid #E6F4EA',
-        fontFamily: 'Roboto, sans-serif',
+        position: 'relative',
+        padding: '18px 28px 18px 20px',
+        borderBottom: '1px solid #E5F3EA',
+        fontFamily: 'Roboto, Arial, sans-serif',
         cursor: 'pointer',
-        transition: 'background 150ms ease',
+        background: isSelected ? '#FFF7F2' : '#FFFFFF',
         borderLeft: isSelected ? '3px solid #FF8852' : '3px solid transparent',
-        background: isSelected ? '#FFF8F2' : 'transparent',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '4px',
+        minHeight: '142px',
       }}
     >
-      {/* Row 1: Badge (icon + text, no bg) */}
-      {meta ? (
-        <div style={badgeStyle}>
-          {IconComp ? <IconComp /> : null}
-          <span style={{ fontSize: '11px', color: '#000000' }}>
-            {meta.label}
-          </span>
+      {incident ? (
+        <div style={incidentStyle}>
+          <IncidentBadge incident={incident} compact />
         </div>
       ) : null}
 
-      {/* Row 2: Tên cam */}
       <div style={nameStyle}>{sos.victimName || 'Nạn nhân'}</div>
+      {phone ? <div style={phoneStyle}>{phone}</div> : null}
+      {address ? <div style={addressStyle}>{address}</div> : null}
+      {description ? <div style={descStyle}>{description}</div> : null}
 
-      {/* Row 3: Số điện thoại */}
-      {phone ? (
-        <div style={phoneStyle}>{phone}</div>
-      ) : null}
-
-      {/* Row 4: Địa chỉ */}
-      <div style={addressStyle}>{address}</div>
-
-      {/* Row 5: Mô tả */}
-      {description ? (
-        <div style={descStyle}>{description}</div>
-      ) : null}
-
-      {/* Row 6: Icon buttons (chỉ hiện khi có audio/media) */}
-      {showButtons ? (
+      {(hasAudio || hasMedia) ? (
         <div
-          style={{
-            display: 'flex',
-            gap: '32px',
-          }}
-          onClick={(e) => e.stopPropagation()}
+          style={actionsStyle}
+          onClick={(event) => event.stopPropagation()}
         >
           {hasAudio ? (
             <button
               type="button"
               style={iconBtnStyle}
-              onClick={(e) => { e.stopPropagation(); onVoiceRecord?.(sos); }}
+              onClick={(event) => {
+                event.stopPropagation();
+                onVoiceRecord?.(sos);
+              }}
             >
               <img src={micIcon} alt="" style={{ width: '24px', height: '24px' }} />
               <span>Ghi âm</span>
@@ -139,7 +71,10 @@ export function SosCard({ sos, isSelected, onClick, cardRef, onVoiceRecord, onGa
             <button
               type="button"
               style={iconBtnStyle}
-              onClick={(e) => { e.stopPropagation(); onGallery?.(sos); }}
+              onClick={(event) => {
+                event.stopPropagation();
+                onGallery?.(sos);
+              }}
             >
               <GalleryIcon />
               <span>Bộ sưu tập</span>
@@ -151,66 +86,137 @@ export function SosCard({ sos, isSelected, onClick, cardRef, onVoiceRecord, onGa
   );
 }
 
-/* ── helpers ── */
+function GalleryIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2.5" stroke="#FF6B3A" strokeWidth="1.6" />
+      <circle cx="8.5" cy="8.5" r="1.5" fill="#FF6B3A" />
+      <path d="M3 15.5l5.5-5 4 4 3-3 5 5" stroke="#FF6B3A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function formatPhone(phone) {
   if (!phone) return '';
-  const n = String(phone).trim();
-  if (n.startsWith('+')) return n;
-  if (n.startsWith('0')) return `(+84) ${n.slice(1)}`;
-  return n;
+  const normalized = String(phone).trim();
+  if (normalized.startsWith('+')) return normalized;
+  if (normalized.startsWith('0')) return `(+84) ${normalized.slice(1)}`;
+  return normalized;
 }
 
 function getSosAddress(sos) {
-  return sos.address || sos.locationAddress || sos.victimAddress ||
-    sos.location?.address || sos.location?.formattedAddress || sos.location?.name || '';
+  return (
+    sos.address ||
+    sos.locationAddress ||
+    sos.victimAddress ||
+    sos.location?.address ||
+    sos.location?.formattedAddress ||
+    sos.location?.name ||
+    ''
+  );
 }
 
-/* ── Styles ── */
+function getAudioUrls(sos) {
+  const topLevel = normalizeAudioUrls(sos?.audioUrl || sos?.audioRecordings);
+  const fromUpdates = Array.isArray(sos?.incidentUpdates)
+    ? sos.incidentUpdates.flatMap((update) => normalizeAudioUrls(update?.audioUrl || update?.audioRecordings))
+    : [];
+  return uniqueStrings([...topLevel, ...fromUpdates]);
+}
+
+function normalizeAudioUrls(raw) {
+  if (Array.isArray(raw)) {
+    return raw.filter((item) => typeof item === 'string' && item.trim().length > 0);
+  }
+  if (typeof raw === 'string' && raw.trim().length > 0) return [raw];
+  return [];
+}
+
+function getMediaUrls(sos) {
+  const topLevel = normalizeMediaUrls(sos?.mediaUrl || sos?.mediaImages || sos?.mediaFiles);
+  const fromUpdates = Array.isArray(sos?.incidentUpdates)
+    ? sos.incidentUpdates.flatMap((update) => normalizeMediaUrls(update?.mediaUrl || update?.mediaImages || update?.mediaFiles))
+    : [];
+  return uniqueStrings([...topLevel, ...fromUpdates]);
+}
+
+function normalizeMediaUrls(raw) {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') return item.src || item.url || item.thumb || '';
+        return '';
+      })
+      .filter((value) => typeof value === 'string' && value.trim().length > 0);
+  }
+  if (typeof raw === 'string' && raw.trim().length > 0) return [raw];
+  return [];
+}
+
+function uniqueStrings(values) {
+  return Array.from(new Set(values.filter((value) => typeof value === 'string' && value.trim())));
+}
+
 const nameStyle = {
+  maxWidth: '210px',
   fontSize: '16px',
-  fontWeight: 700,
-  color: '#FF8852',
+  fontWeight: 800,
+  color: '#FF6B3A',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
-};
-
-const badgeStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '4px',
+  marginBottom: '8px',
 };
 
 const phoneStyle = {
   fontSize: '13px',
-  color: '#000000',
-  fontWeight: 700,
+  color: '#111111',
+  fontWeight: 800,
+  marginBottom: '8px',
 };
 
 const addressStyle = {
   fontSize: '13px',
-  color: '#000000',
-  lineHeight: 1.4,
+  color: '#111111',
+  lineHeight: 1.35,
+  marginBottom: '8px',
 };
 
 const descStyle = {
   fontSize: '13px',
   color: '#555555',
-  lineHeight: 1.4,
+  lineHeight: 1.35,
+};
+
+const incidentStyle = {
+  position: 'absolute',
+  top: '18px',
+  right: '20px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+};
+
+const actionsStyle = {
+  display: 'flex',
+  justifyContent: 'center',
+  gap: '44px',
+  paddingTop: '18px',
 };
 
 const iconBtnStyle = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: '12px',
+  gap: '8px',
   background: 'none',
   border: 'none',
   cursor: 'pointer',
   fontSize: '12px',
-  color: '#FF8852',
-  fontFamily: 'Poppins, sans-serif',
-  padding: '12px 0px 0px',
+  color: '#FF6B3A',
+  fontFamily: 'Roboto, Arial, sans-serif',
+  padding: 0,
 };
 
 SosCard.propTypes = {
@@ -228,6 +234,10 @@ SosCard.propTypes = {
     status: PropTypes.string,
     hasAudio: PropTypes.bool,
     hasMedia: PropTypes.bool,
+    audioUrl: PropTypes.oneOfType([PropTypes.string, PropTypes.array]),
+    mediaUrl: PropTypes.oneOfType([PropTypes.string, PropTypes.array]),
+    audioRecordings: PropTypes.array,
+    mediaImages: PropTypes.array,
   }).isRequired,
   isSelected: PropTypes.bool,
   onClick: PropTypes.func.isRequired,

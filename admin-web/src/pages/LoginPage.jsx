@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import {
   getIdTokenResult,
+  inMemoryPersistence,
   signInWithEmailAndPassword,
   signOut,
+  setPersistence,
 } from 'firebase/auth';
 import { auth } from '../firebase.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -25,7 +27,6 @@ export function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -47,11 +48,17 @@ export function LoginPage() {
       return;
     }
 
+    const normalizedEmail = email.trim();
+    const emailToLogin = normalizedEmail.includes('@')
+      ? normalizedEmail
+      : `${normalizedEmail}@lightspeed.rescue`;
+
     setLoading(true);
     try {
+      await setPersistence(auth, inMemoryPersistence);
       const credential = await signInWithEmailAndPassword(
         auth,
-        email.trim(),
+        emailToLogin,
         password,
       );
       const idTokenResult = await getIdTokenResult(
@@ -61,7 +68,7 @@ export function LoginPage() {
 
       if (idTokenResult?.claims?.role !== 'admin') {
         await signOut(auth);
-        setError('Tài khoản không có quyền truy cập');
+        setError('Tài khoản không có quyền Admin');
         return;
       }
 
@@ -74,11 +81,6 @@ export function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleForgotPassword = (event) => {
-    event.preventDefault();
-    alert('Liên hệ quản trị hệ thống');
   };
 
   const leftPanel = (
@@ -231,48 +233,7 @@ export function LoginPage() {
               </button>
             </div>
           </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '24px',
-            }}
-          >
-            <label
-              htmlFor="remember-session"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '13px',
-                color: '#313A51',
-              }}
-            >
-              <input
-                id="remember-session"
-                type="checkbox"
-                className="auth-checkbox"
-                checked={rememberMe}
-                onChange={(event) => setRememberMe(event.target.checked)}
-              />
-              Ghi nhớ phiên đăng nhập
-            </label>
-            <button
-              type="button"
-              onClick={handleForgotPassword}
-              className="auth-link"
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#FF8852',
-                fontSize: '13px',
-                cursor: 'pointer',
-              }}
-            >
-              Quên mật khẩu?
-            </button>
-          </div>
+          <div style={{ marginBottom: '24px' }} />
           <button
             type="submit"
             className="auth-submit"

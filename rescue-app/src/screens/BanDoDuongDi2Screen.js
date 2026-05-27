@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,24 +10,170 @@ import {
 } from "react-native";
 import {
   useRouter,
-  usePathname,
 } from "expo-router";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapViewDirections from "react-native-maps-directions";
+import * as Location from "expo-location";
+import {
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+} from "firebase/firestore";
+import { db } from "../../firebaseConfig";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function BanDoDuongDiScreen() {
   const router = useRouter();
+  const [rescuerId, setRescuerId] = useState(null);
+  const [rescuerLocation, setRescuerLocation] = useState(null);
+  const [victimLocation, setVictimLocation] = useState(null);
+  const [victimName, setVictimName] = useState("Nạn nhân");
+  const [activeSosId, setActiveSosId] = useState(null);
+  const [isRouting, setIsRouting] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem("rescuerUid").then((storedId) => {
+      if (!storedId) {
+        router.replace("/DangNhap");
+        return;
+      }
+      setRescuerId(storedId);
+    });
+  }, [router]);
+
+  useEffect(() => {
+    if (!rescuerId) return undefined;
+
+    const q = query(
+      collection(db, "rescue_missions"),
+      where("rescuerId", "==", rescuerId),
+      where("status", "in", ["pending", "accepted"]),
+    );
+
+    const unsub = onSnapshot(q, async (snapshot) => {
+      if (snapshot.empty) {
+        setActiveSosId(null);
+        setVictimLocation(null);
+        return;
+      }
+
+      const missionDoc = snapshot.docs[0];
+      const missionData = missionDoc.data();
+      const sosId = missionData?.sosId;
+      setActiveSosId(sosId || null);
+
+      if (sosId) {
+        const sosSnap = await getDoc(doc(db, "sos_alerts", sosId));
+        if (sosSnap.exists()) {
+          const data = sosSnap.data();
+          setVictimName(data?.victimName || data?.name || "Nạn nhân");
+          const loc = data?.location;
+          if (loc?.latitude && loc?.longitude) {
+            setVictimLocation({ latitude: loc.latitude, longitude: loc.longitude });
+          } else if (loc?.lat && loc?.lng) {
+            setVictimLocation({ latitude: loc.lat, longitude: loc.lng });
+          }
+        }
+      }
+    });
+
+    return () => unsub();
+  }, [rescuerId, router]);
+
+  useEffect(() => {
+    if (!activeSosId) return undefined;
+    const unsub = onSnapshot(doc(db, "sos_alerts", activeSosId), (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      setVictimName(data?.victimName || data?.name || "Nạn nhân");
+      const loc = data?.location;
+      if (loc?.latitude && loc?.longitude) {
+        setVictimLocation({ latitude: loc.latitude, longitude: loc.longitude });
+      } else if (loc?.lat && loc?.lng) {
+        setVictimLocation({ latitude: loc.lat, longitude: loc.lng });
+      }
+    });
+    return () => unsub();
+  }, [activeSosId]);
+
+  useEffect(() => {
+    setIsRouting(Boolean(rescuerLocation && victimLocation));
+  }, [rescuerLocation, victimLocation]);
+
+  useEffect(() => {
+    if (!rescuerId) return undefined;
+
+    let intervalId = null;
+
+    const updateRescuerLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
+        const loc = await Location.getCurrentPositionAsync({});
+        const nextLoc = {
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        };
+        setRescuerLocation(nextLoc);
+        await setDoc(doc(db, "Users", rescuerId), {
+          currentLocation: nextLoc,
+          location: nextLoc,
+          lastLocationUpdate: serverTimestamp(),
+          locationSource: "rescue-app",
+          rescueAppOnline: true,
+        }, { merge: true });
+      } catch (error) {
+        console.error("Lỗi cập nhật vị trí đội cứu hộ:", error);
+      }
+    };
+
+    updateRescuerLocation();
+    intervalId = setInterval(updateRescuerLocation, 10000);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [rescuerId]);
 
   return (
     <SafeAreaView style={styles.container}>
       {/* MAP */}
       <View style={styles.mapContainer}>
-        <Image
-          source={require("../../assets/images/Map Directions.png")}
+        <MapView
+          provider={PROVIDER_GOOGLE}
           style={styles.map}
-          resizeMode="cover"
-        />
-
-       
-
+          initialRegion={
+            rescuerLocation
+              ? {
+                  ...rescuerLocation,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }
+              : {
+                  latitude: 16.0544,
+                  longitude: 108.2022,
+                  latitudeDelta: 0.05,
+                  longitudeDelta: 0.05,
+                }
+          }
+        >
+          {rescuerLocation && <Marker coordinate={rescuerLocation} />}
+          {victimLocation && <Marker coordinate={victimLocation} />}
+          {isRouting && rescuerLocation && victimLocation ? (
+            <MapViewDirections
+              origin={rescuerLocation}
+              destination={victimLocation}
+              apikey={process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}
+              strokeWidth={4}
+              strokeColor="#FF6D3A"
+            />
+          ) : null}
+        </MapView>
         {/* Top right buttons */}
         <View style={styles.secondaryWrapper}>
           <TouchableOpacity style={styles.roundButton}>
@@ -91,7 +237,7 @@ export default function BanDoDuongDiScreen() {
 
           <View style={styles.inputBox}>
             <Text style={styles.inputText}>
-              Nguyễn Vũ Huy
+              {victimName}
             </Text>
           </View>
 
@@ -176,10 +322,11 @@ export default function BanDoDuongDiScreen() {
         </Text>
 
         <View style={styles.bottomButtons}>
-  <TouchableOpacity style={styles.startButton}
-  onPress={() =>
-    router.push("/BanDoBatDau2")
-  }>
+  <TouchableOpacity
+    style={styles.startButton}
+    onPress={() => router.push("/BanDoBatDau2")}
+    onPressIn={() => setIsRouting(true)}
+  >
     <Image
       source={require("../../assets/icons/Directions-Icon-5.png")}
       style={styles.bottomButtonIcon}
@@ -532,19 +679,7 @@ mainWrapper: {
   zIndex: 999,
 },
 
-roundButton: {
-  width: 58,
-  height: 58,
-
-  justifyContent: "center",
-  alignItems: "center",
-},
-
-roundIcon: {
-  width: 58,
-  height: 58,
-}
-,backButton: {
+backButton: {
   position: "absolute",
 
   left: 4,

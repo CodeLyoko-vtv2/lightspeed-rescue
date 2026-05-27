@@ -21,11 +21,22 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLORS } from "../../constants/colors";
 
 // Firebase Import
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "../../firebaseConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { useAuth } from "../_layout";
+import { auth, db } from "../../firebaseConfig";
 import { styles } from "../../constants/(auth)/login.styles";
+
+const normalizePhone = (value: string) => {
+  const digits = value.replace(/[^0-9]/g, "");
+  if (digits.startsWith("84")) return `+${digits}`;
+  if (digits.startsWith("0")) return `+84${digits.slice(1)}`;
+  return `+84${digits}`;
+};
+
+const phoneToAuthEmail = (phone: string) =>
+  `${phone.replace(/[^0-9]/g, "")}@lightspeed-rescue.local`;
 
 export default function LoginScreen() {
   const { setAuth } = useAuth();
@@ -57,19 +68,44 @@ export default function LoginScreen() {
     if (!isFormValid) return;
     setLoading(true);
     try {
-      const formattedPhone = phoneNumber.startsWith("0") ? `+84${phoneNumber.slice(1)}` : `+84${phoneNumber}`;
-      const usersRef = collection(db, "Users");
-      const q = query(usersRef, where("phoneNumber", "==", formattedPhone), where("password", "==", password));
-      const querySnapshot = await getDocs(q);
+      const formattedPhone = normalizePhone(phoneNumber);
+      const userQuery = query(
+        collection(db, "Users"),
+        where("phoneNumber", "==", formattedPhone),
+      );
+      const userQuerySnap = await getDocs(userQuery);
+      const victimDoc = userQuerySnap.docs.find((item) => {
+        const role = item.data().role;
+        return role === "VICTIM" || role === "victim";
+      });
+      const authEmail =
+        victimDoc?.data().authEmail
+          ? victimDoc.data().authEmail
+          : phoneToAuthEmail(formattedPhone);
+      const credential = await signInWithEmailAndPassword(
+        auth,
+        authEmail,
+        password,
+      );
+      const userSnap = await getDoc(doc(db, "Users", credential.user.uid));
+      const userData = userSnap.exists() ? userSnap.data() : null;
 
-      if (!querySnapshot.empty) {
-        await AsyncStorage.setItem("userPhone", formattedPhone);
-        setAuth(true);
-      } else {
-        Alert.alert("Lỗi", "Thông tin tài khoản hoặc mật khẩu không đúng.");
+      if (!userData || (userData.role !== "VICTIM" && userData.role !== "victim")) {
+        await signOut(auth);
+        Alert.alert(
+          "Không đúng quyền",
+          "Tài khoản này không phải tài khoản nạn nhân.",
+        );
+        return;
       }
+
+      await AsyncStorage.setItem("userPhone", formattedPhone);
+      await AsyncStorage.setItem("userUid", credential.user.uid);
+      await AsyncStorage.setItem("userRole", "VICTIM");
+      setAuth(true);
+      router.replace("/(tabs)/home");
     } catch (error) {
-      Alert.alert("Lỗi", "Kết nối hệ thống thất bại.");
+      Alert.alert("Sai thông tin đăng nhập", "Số điện thoại hoặc mật khẩu không chính xác.");
     } finally {
       setLoading(false);
     }

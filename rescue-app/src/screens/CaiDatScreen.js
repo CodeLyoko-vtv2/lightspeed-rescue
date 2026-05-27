@@ -1,5 +1,4 @@
 import React, {
-  useEffect,
   useState,
 } from "react";
 
@@ -12,35 +11,15 @@ import {
   Image,
   ScrollView,
   Switch,
+  Alert,
 } from "react-native";
 import {
   useRouter,
-  usePathname,
 } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { signOut } from "firebase/auth";
 import BottomNavbar from "../components/navigation/NavigationBarMobile";
-
-const profileMenus = [
-  {
-    title: "Tài khoản của tôi",
-    desc: "Chỉnh sửa thông tin tài khoản của bạn",
-    icon: require("../../assets/icons/Group 12334.png"),
-  },
-  {
-    title: "Người thân liên hệ",
-    desc: "Quản lý danh sách đã lưu",
-    icon: require("../../assets/icons/Group 12334.png"),
-  },
-  {
-    title: "Xác thực 2 lớp",
-    desc: "Tăng cường bảo mật cho tài khoản",
-    icon: require("../../assets/icons/Group 12334 (2).png"),
-  },
-  {
-    title: "Đăng xuất",
-    desc: "Đăng xuất tài khoản",
-    icon: require("../../assets/icons/Group 12334 (3).png"),
-  },
-];
+import { auth } from "../../firebaseConfig";
 
 const otherMenus = [
   {
@@ -55,6 +34,46 @@ const otherMenus = [
 
 export default function CaiDatScreen() {
   const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = () => {
+    if (isLoggingOut) return;
+
+    Alert.alert(
+      "Đăng xuất",
+      "Bạn có chắc chắn muốn đăng xuất tài khoản đội cứu hộ?",
+      [
+        {
+          text: "Hủy",
+          style: "cancel",
+        },
+        {
+          text: "Đăng xuất",
+          style: "destructive",
+          onPress: async () => {
+            setIsLoggingOut(true);
+            try {
+              await signOut(auth);
+              await AsyncStorage.multiRemove([
+                "rescuerUid",
+                "rescuerPhone",
+                "rescuerRole",
+              ]);
+              router.replace("/DangNhap");
+            } catch (_error) {
+              Alert.alert(
+                "Lỗi đăng xuất",
+                "Không thể đăng xuất. Vui lòng thử lại.",
+              );
+            } finally {
+              setIsLoggingOut(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -218,7 +237,11 @@ export default function CaiDatScreen() {
   </TouchableOpacity>
 
   {/* Đăng xuất */}
-  <TouchableOpacity style={styles.menuItem}>
+  <TouchableOpacity
+    style={[styles.menuItem, isLoggingOut && styles.menuItemDisabled]}
+    onPress={handleLogout}
+    disabled={isLoggingOut}
+  >
     <View style={styles.menuLeft}>
       <Image
         source={require("../../assets/icons/Group 12334 (3).png")}
@@ -373,6 +396,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
 
     paddingVertical: 14,
+  },
+
+  menuItemDisabled: {
+    opacity: 0.6,
   },
 
   menuBorder: {

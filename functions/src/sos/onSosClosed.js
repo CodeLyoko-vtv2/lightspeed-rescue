@@ -34,9 +34,11 @@ const getAssignedTeamIds = (assignedTeams) => {
   return Object.keys(assignedTeams);
 };
 
+const TERMINAL_STATUSES = new Set(["cancelled", "completed", "resolved"]);
+
 const onSosClosed = onDocumentUpdated(
   {
-    document: "sos_records/{sosId}",
+    document: "sos_alerts/{sosId}",
     region: "asia-southeast1",
     timeoutSeconds: 60,
     memory: "256MiB"
@@ -53,7 +55,7 @@ const onSosClosed = onDocumentUpdated(
       const before = event.data.before.data() || {};
       const after = event.data.after.data() || {};
 
-      if (before.status === "resolved" || after.status !== "resolved") {
+      if (TERMINAL_STATUSES.has(before.status) || !TERMINAL_STATUSES.has(after.status)) {
         return;
       }
 
@@ -71,18 +73,24 @@ const onSosClosed = onDocumentUpdated(
         });
       }
 
-      if (metaStatus === "resolved") {
+      if (TERMINAL_STATUSES.has(metaStatus)) {
         return;
       }
 
       const firestore = getFirestore();
       const assignedTeamIds = getAssignedTeamIds(after.assignedTeams);
+      if (after.rescuerId && !assignedTeamIds.includes(after.rescuerId)) {
+        assignedTeamIds.push(after.rescuerId);
+      }
+      if (after.rescueTeamId && !assignedTeamIds.includes(after.rescueTeamId)) {
+        assignedTeamIds.push(after.rescueTeamId);
+      }
 
       const cleanupTasks = [
         rtdb.ref(`sos_sessions/${sosId}/victim_location`).remove(),
         rtdb.ref(`sos_sessions/${sosId}/rescuer_locations`).remove(),
         rtdb.ref(`sos_sessions/${sosId}/meta`).update({
-          status: "resolved",
+          status: after.status,
           resolvedAt: ServerValue.TIMESTAMP
         })
       ];
@@ -97,15 +105,22 @@ const onSosClosed = onDocumentUpdated(
         }
       }
 
-      const teamUpdates = assignedTeamIds.map((teamId) =>
-        firestore.collection("rescue_teams").doc(teamId).set(
-          {
-            isAvailable: true,
-            currentSosId: null
-          },
-          { merge: true }
-        )
-      );
+      const teamUpdates = assignedTeamIds.flatMap((teamId) => [
+          firestore.collection("rescue_teams").doc(teamId).set(
+            {
+              isAvailable: true,
+              currentSosId: null
+            },
+            { merge: true }
+          ),
+          firestore.collection("Users").doc(teamId).set(
+            {
+              isAvailable: true,
+              currentSosId: null
+            },
+            { merge: true }
+          )
+        ]);
 
       const teamResults = await Promise.allSettled(teamUpdates);
       for (const result of teamResults) {

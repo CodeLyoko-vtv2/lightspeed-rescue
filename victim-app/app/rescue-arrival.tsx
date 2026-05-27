@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, StatusBar, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StatusBar, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Location from "expo-location"; // ✅ THÊM EXPO LOCATION
+import { collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { db } from "../firebaseConfig";
 import { COLORS } from "../constants/colors";
 
 export default function RescueArrivalScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const { rescueTeamName, meetingLat, meetingLng } = useLocalSearchParams();
+  const { rescueTeamName, meetingLat, meetingLng, requestId } = useLocalSearchParams();
 
   const lat = meetingLat ? parseFloat(meetingLat as string) : 16.077076;
   const lng = meetingLng ? parseFloat(meetingLng as string) : 108.219471;
@@ -26,6 +28,7 @@ export default function RescueArrivalScreen() {
 
   // ✅ STATE LƯU ĐỊA CHỈ DỊCH NGƯỢC
   const [address, setAddress] = useState("Đang dịch tọa độ...");
+  const [isCompleting, setIsCompleting] = useState(false);
 
   // ✅ CHẠY REVERSE GEOCODING KHI VÀO MÀN HÌNH
   useEffect(() => {
@@ -53,6 +56,38 @@ export default function RescueArrivalScreen() {
 
     fetchAddress();
   }, [lat, lng]);
+
+  const handleCompleteRescue = async () => {
+    if (!requestId || isCompleting) {
+      router.push("/(tabs)/home");
+      return;
+    }
+    try {
+      setIsCompleting(true);
+      await updateDoc(doc(db, "sos_alerts", String(requestId)), {
+        status: "completed",
+      });
+
+      const missionQuery = query(
+        collection(db, "rescue_missions"),
+        where("sosId", "==", String(requestId)),
+      );
+      const missionSnap = await getDocs(missionQuery);
+      if (!missionSnap.empty) {
+        await updateDoc(doc(db, "rescue_missions", missionSnap.docs[0].id), {
+          status: "completed",
+          completedAt: serverTimestamp(),
+        });
+      }
+      Alert.alert("Thành công", "Giải cứu thành công!");
+      router.push("/(tabs)/home");
+    } catch (error) {
+      console.error("Lỗi hoàn tất giải cứu:", error);
+      router.push("/(tabs)/home");
+    } finally {
+      setIsCompleting(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -111,7 +146,8 @@ export default function RescueArrivalScreen() {
         <View style={styles.actionRow}>
           <TouchableOpacity 
             style={[styles.actionBtn, { backgroundColor: '#FFF5F0' }]}
-            onPress={() => router.push("/(tabs)/home")}
+            onPress={handleCompleteRescue}
+            disabled={isCompleting}
           >
             <Ionicons name="checkmark" size={20} color="#FF8852" />
             <Text style={[styles.actionBtnText, { color: '#FF8852' }]}>Xác nhận</Text>
